@@ -541,7 +541,7 @@ async function showSummaryConfirm() {
   } catch {}
 
   const fields = { problem: "Problem", differentiation: "Unique angle", target_market: "Target market",
-                   budget: "Budget", skills: "Skills", education: "Education" };
+                   budget: "Budget", available_time: "Available time", skills: "Skills", education: "Education", values: "Values" };
   const rows = Object.entries(fields).map(([k, lbl]) => {
     const raw = (summary.answers || {})[k];
     const pretty = analyzed && analyzed[k] && String(analyzed[k]).trim() ? String(analyzed[k]).trim() : null;

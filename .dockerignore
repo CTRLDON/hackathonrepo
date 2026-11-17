@@ -9,3 +9,11 @@ _backups/
 tests/
 outputs/
 .git/
+
+# Secrets and local-only provider files never go into the image
+.env*
+!.env.example
+gemini_client.py
+tools/gemini_client.py
+.DS_Store
+.vscode/

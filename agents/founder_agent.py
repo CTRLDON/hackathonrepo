@@ -40,6 +40,12 @@ TOPICS = {
         "about": "how much money they can realistically spend to get started",
         "fallback": "What budget can you realistically spend to get this off the ground?",
     },
+    "available_time": {
+        "complete_when": "gives an amount of time (e.g. hours per week, full-time or part-time) they can put in",
+        "label": "Available time",
+        "about": "how much time they can realistically put into this venture (hours per week, full- or part-time)",
+        "fallback": "How much time can you realistically give this each week — full-time, or a few hours around other work?",
+    },
     "skills": {
         "complete_when": "names at least one concrete skill or area of experience",
         "label": "Skills",
@@ -52,9 +58,15 @@ TOPICS = {
         "about": "their formal education or training (degree, field, institution, or self-taught)",
         "fallback": "What's your education — degree, field of study, or are you self-taught?",
     },
+    "values": {
+        "complete_when": "names at least one principle or line they won't cross (e.g. privacy, honesty, sustainability)",
+        "label": "Values",
+        "about": "the values or principles the venture must respect (things they will or won't do)",
+        "fallback": "What values matter to you in how this business runs — anything you'd never compromise on?",
+    },
 }
-REQUIRED_FIELDS = ["budget", "skills", "education", "target_market"]
-MAX_QUESTIONS = 10
+REQUIRED_FIELDS = ["budget", "available_time", "skills", "education", "target_market", "values"]
+MAX_QUESTIONS = 14
 MAX_ASKS_PER_TOPIC = 2  # one follow-up if the reply was vague/incomplete, never more
 
 

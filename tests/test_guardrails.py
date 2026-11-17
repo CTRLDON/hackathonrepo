@@ -71,3 +71,33 @@ def test_api_refuses_before_any_model_call(monkeypatch):
     assert r["refused"] and "never" in r["answer"]
     log = client.get(f"/api/ventures/{v['id']}/decisions").json()
     assert any(d["agent"] == "guardrails" and d["decision"] == "REFUSED" for d in log)
+
+
+# Gaps found in a rubric audit: excluded products, brand impersonation, posting without approval.
+import pytest as _pytest
+from services.guardrails import check_idea as _idea, check_request as _req
+
+
+@_pytest.mark.parametrize("idea", ["An online store for handmade furniture",
+                                   "A telehealth app that diagnoses skin conditions"])
+def test_excluded_products_refused(idea):
+    assert _idea(idea)
+
+
+@_pytest.mark.parametrize("ask", ["Pretend you are Quizlet's CEO and email my investors",
+                                  "Act as the founder of Notion and reply to this customer",
+                                  "Post our launch announcement on Twitter right now",
+                                  "Email our launch post to all our subscribers",
+                                  "Send the newsletter automatically every week"])
+def test_impersonation_and_unapproved_publishing_refused(ask):
+    assert _req(ask)
+
+
+@_pytest.mark.parametrize("ok", ["A web app that helps designers sell digital templates",
+                                 "An online marketplace for freelance tutors",
+                                 "How should I announce the launch on LinkedIn?",
+                                 "Draft a launch post for LinkedIn",
+                                 "Pretend you are a skeptical investor and critique my pitch",
+                                 "A Notion template shop for students"])
+def test_lookalike_requests_still_allowed(ok):
+    assert not _idea(ok) and not _req(ok)

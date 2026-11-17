@@ -55,7 +55,7 @@ def test_interview_never_repeats_and_registers_context(client):
     v = client.post("/api/ventures", json={"idea": idea}).json()
     res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": idea}).json()
     asked = []
-    replies = ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "I code in Python", "BSc Computer Science"]
+    replies = ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "10 hours a week", "I code in Python", "BSc Computer Science", "Student privacy comes first"]
     for reply in replies:
         assert not res["ready_for_brief"], res
         asked.append(res["question"])
@@ -112,7 +112,7 @@ def test_edits_after_summary_update_the_answers(client, monkeypatch):
     idea = "A study planner app for university students"
     v = client.post("/api/ventures", json={"idea": idea}).json()
     res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": idea}).json()
-    for reply in ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "I code in Python", "BSc Computer Science"]:
+    for reply in ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "10 hours a week", "I code in Python", "BSc Computer Science", "Student privacy comes first"]:
         res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": reply}).json()
     assert res["ready_for_brief"]
     assert client.get(f"/api/ventures/{v['id']}/summary").json()["answers"]["budget"] == "5000 USD"
@@ -135,14 +135,16 @@ def test_vague_answers_get_one_follow_up(client):
     replies = ["practice", "still practice",                     # problem: vague twice -> accepted after 2 asks
                "AI scheduling built from your syllabus",
                "10,000", "10,000 USD",                           # budget: no currency -> one follow-up
+               "10 hours a week",
                "I code in Python",
-               "comp eng", "bachelor in computer engineering"]  # education: no level -> one follow-up
+               "comp eng", "bachelor in computer engineering",  # education: no level -> one follow-up
+               "Student privacy comes first"]
     for reply in replies:
         assert not res["ready_for_brief"], (topics, res)
         topics.append(client.get(f"/api/ventures/{v['id']}").json()["venture"]["discovery"]["pending"])
         res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": reply}).json()
     assert res["ready_for_brief"], res
-    assert topics == ["problem", "problem", "differentiation", "budget", "budget", "skills",
-                      "education", "education"], topics
+    assert topics == ["problem", "problem", "differentiation", "budget", "budget", "available_time",
+                      "skills", "education", "education", "values"], topics
     answers = client.get(f"/api/ventures/{v['id']}/summary").json()["answers"]
     assert "10,000 USD" in answers["budget"] and "bachelor" in answers["education"]

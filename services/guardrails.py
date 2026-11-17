@@ -30,6 +30,8 @@ EXCLUDED_PRODUCTS = [
         r"\b(prescri(be|bing|ptions?)|medication (advice|dosage)|dosage (advice|calculator))\b",
         r"\b(treatment plans?|therapy sessions?|telemedicine|online doctor)\b",
         r"\bmental health (advice|treatment|diagnos\w*|counsell?ing)\b",
+        r"\b(telehealth|telemedicine|teletherapy|virtual (doctor|clinic|nurse))\b",
+        r"\bdiagnos\w*\b[^.]{0,25}\b(conditions?|diseases?|illness\w*|symptoms|skin|rash\w*|injur\w*|disorders?|cancer|infections?)\b",
     ]),
     ("legal", "legal advice products", [
         r"\b(legal advice|legal counsel|legal consultations?|ai lawyer|virtual lawyer|robot lawyer)\b",
@@ -43,6 +45,10 @@ EXCLUDED_PRODUCTS = [
         r"hardware|gadgets?|packaging|containers)\b",
         r"\b(subscription box(es)?|print[- ]on[- ]demand|3d[- ]print\w*|dropshipping)\b",
         r"\breusable (packaging|containers|cups|bottles)\b",
+        r"\b(store|shop|boutique|marketplace|brand|business)\b[^.]{0,25}\b(for|selling|of|that sells)\b[^.]{0,20}"
+        r"\b(handmade|furniture|clothing|clothes|apparel|t-?shirts?|jewel\w*|cosmetics|skincare products|candles|"
+        r"shoes|sneakers|handbags|toys|snacks|baked goods|coffee beans|plants|groceries)\b",
+        r"\bhandmade (goods|items|crafts|products|furniture|jewel\w*|clothing)\b",
     ]),
 ]
 
@@ -71,8 +77,19 @@ MUST_NEVER = [
     ("impersonation", "impersonate the founder, customers or another brand", [
         r"\b(impersonat\w*|pose as|posing as|pass (it|myself|ourselves) off as)\b",
         r"\b(as if (it came|it were|you were) (from )?|sign (it|this|the (email|post|message|letter|reply)) as|written in the name of)\b",
+        r"\b(pretend(ing)?|act(ing)?|role-?play(ing)?)\b[^.]{0,6}\b(you('re| are)|you were|as)\b[^.]{0,30}"
+        r"(\w'?s (ceo|founder|cto|team|support|spokesperson|official account)|\b(ceo|founder|spokesperson|employee) (of|at)\b)",
+        r"\b(email|message|write to|reply to|post|tweet|sign)\b[^.]{0,40}\bon behalf of\b",
         r"\bpretend(ing)? to be\b[^.]{0,40}\b(customers?|users?|clients?|the founder|a brand|another company|"
         r"apple|google|amazon|microsoft|a real person|someone else)\b",
+    ]),
+    ("unapproved_publish", "publish, post or send anything without your approval (drafts go through the "
+                           "Launch approval step, and VentureOS never posts for you)", [
+        r"^(?!\s*(how|what|why|when|where|which|should|is|are|do|does|can i|could i|would it)\b)[^?]*"
+        r"\b(post|publish|tweet|send out|blast|announce|share)\b[^.?]{0,50}\b(on|to|with)\b[^.?]{0,20}"
+        r"\b(twitter|x\.com|linkedin|facebook|instagram|tiktok|reddit|product ?hunt|hacker news|discord|"
+        r"(our |my |the )?(mailing list|email list|newsletter|subscribers|customers|users|everyone))\b",
+        r"\b(post|publish|send|email)\b[^.?]{0,30}\b(without (asking|my approval|approval|checking)|automatically)\b",
     ]),
     ("income_promise", "promise income or guarantee success", [
         r"\b(guarantee[ds]?|promis(e|es|ed|ing))\b[^.]{0,40}\b(income|revenue|profits?|earnings|returns|success|"
