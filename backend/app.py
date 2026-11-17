@@ -367,6 +367,15 @@ async def research(body: NewResearch):
         raise HTTPException(502, str(e))
 
 
+@app.middleware("http")
+async def _no_stale_frontend(request, call_next):
+    """Always revalidate the UI files, so a code change can't leave an old app.js running."""
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 

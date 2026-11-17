@@ -12,3 +12,6 @@ Thumbs.db
 .pytest_cache/
 data/ventureos.db
 .env.example
+
+# Backup of the Gemini provider settings (contains an API key)
+.env.gemini
