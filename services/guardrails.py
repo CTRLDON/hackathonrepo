@@ -116,7 +116,17 @@ _COMPILED = {
 }
 
 
+# "(no medical advice)", "without investment advice", "doesn't give legal advice": a founder ruling an
+# excluded area OUT must not trip the excluded-product check. Only the negated phrase is removed, so
+# other excluded wording in the same text ("stock picks", "telehealth") is still caught.
+_NEGATED = re.compile(r"\b(no|not|without|never|nor|doesn'?t (give|offer|provide)|does not (give|offer|provide)|"
+                      r"isn'?t|is not)\s+(any\s+|a\s+)?([\w-]+\s+){0,2}"
+                      r"(advice|advis\w*|diagnos\w*|recommendations?|prescriptions?|treatment)\b", _F)
+
+
 def _first_match(text, group):
+    if group == "excluded":
+        text = _NEGATED.sub(" ", text or "")
     for rule, label, pats in _COMPILED[group]:
         for p in pats:
             if p.search(text or ""):
