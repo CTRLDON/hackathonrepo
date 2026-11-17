@@ -37,6 +37,7 @@ See `.env.example` for the full list of settings. The default configuration uses
 | 5. Launch | Launch copy, tagline, claim-to-evidence mapping | Working |
 | 5. Launch | Store-page publishing (never published) | MOCKED |
 | 5. Launch | Sale to cash: `payments.py`, `delivery.py`, `refunds.py`, `reconcile.py` (no real or sandbox payments) | MOCKED |
+| 5. Launch | Output guardrail: income promises, fake urgency and fake social proof in launch copy are blocked and fail the gate | Working |
 | 5. Launch | Gate: no unsupported claims → GO | Working |
 | 6. Operate & Learn | 90-day operating plan: KPIs, roadmap, risks | Working |
 | 6. Operate & Learn | Comparable historical-case research | Working |
@@ -47,11 +48,10 @@ See `.env.example` for the full list of settings. The default configuration uses
 | Cross-cutting | Evidence ledger with source URLs and `ASSUMPTION` labels | Working |
 | Cross-cutting | Cost per run shown in the UI | Working |
 | Cross-cutting | Trust Center: live red-team of the guardrails (`evals/trick_prompts.json`), try-a-trick-prompt box, honesty scorecard computed from the venture's records | Working |
-| 5. Launch | Output guardrail: income promises, fake urgency and fake social proof in launch copy are blocked and fail the gate | Working |
 | Cross-cutting | Agent prompts mirrored one file per agent in `prompts/` (`scripts/export_prompts.py`) | Working |
 | Cross-cutting | Progress mind-map UI | Working |
 
-The demo run's outputs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention, including a STOP gate decision for a deliberately weak idea. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`. The same demo run is recorded in `decision_log.json` at the repository root.
+Results from real pipeline runs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention. The current demo run (open-weight `qwen2.5-coder:7b`, recorded in `decision_log.json`) shows a deliberately weak idea getting a STOP gate decision, plus a trust report computed from that run. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`; `outputs/README.md` says which run produced each file. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`.
 
 ## Architecture
 
