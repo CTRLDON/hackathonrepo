@@ -117,6 +117,11 @@ ARTIFACT_COPIES = [
     ("launch/store_page.html", "phase5_step2_store_page.html"),
     ("final/venture_report.html", "phase6_step2_venture_report.html"),
     ("final/trust_report.md", "phase6_step3_trust_report.md"),
+    ("discover/opportunities.md", "phase1_step2_opportunities.md"),
+    ("mvp/USER_GUIDE.md", "phase3_step3_user_guide.md"),
+    ("launch/launch_posts.md", "phase5_step3_launch_posts.md"),
+    ("final/support_kit.md", "phase6_step4_support_kit.md"),
+    ("final/persevere_or_pivot_memo.md", "phase6_step5_persevere_or_pivot_memo.md"),
 ]
 
 

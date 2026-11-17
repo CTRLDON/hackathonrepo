@@ -14,6 +14,7 @@ from agents.financial_agent import FinancialAgent
 from agents.founder_agent import FounderAgent
 from agents.marketing_agent import MarketingAgent
 from agents.operations_agent import OperationsAgent
+from agents.opportunity_agent import OpportunityAgent
 from agents.research_agent import ResearchAgent
 from agents.strategy_agent import StrategyAgent
 from agents.testing_agent import TestingAgent
@@ -34,6 +35,11 @@ ARTIFACTS = {
     "policies": "commercial/policies.md",
     "store-page": "launch/store_page.html",
     "trust-report": "final/trust_report.md",
+    "opportunities": "discover/opportunities.md",
+    "user-guide": "mvp/USER_GUIDE.md",
+    "launch-posts": "launch/launch_posts.md",
+    "support-kit": "final/support_kit.md",
+    "pivot-memo": "final/persevere_or_pivot_memo.md",
 }
 
 
@@ -125,6 +131,7 @@ class Orchestrator:
         self.operations = OperationsAgent()
         self.case_research = CaseResearchAgent()
         self.business_map = BusinessMapAgent()
+        self.opportunity = OpportunityAgent()
 
     # ── Shared ───────────────────────────────────────────────────────────
     def build_business_map(self, vid, feasibility=None):
@@ -217,6 +224,18 @@ class Orchestrator:
         except Exception as e:
             _checkpoint(vid, "discover", f"Business map failed — {str(e)[:80]}")
 
+        _checkpoint(vid, "discover", "Scoring the idea against alternative opportunities…")
+        opp = {"options": [], "best": None, "original": None}
+        try:
+            opp = self.opportunity.find(database.get_venture(vid), OUTPUTS_DIR / vid / ARTIFACTS["opportunities"])
+            _checkpoint(vid, "discover", f"Top opportunity: {opp['best']['title']} ({opp['best']['score']}/5)")
+            _log_agent(vid, "discover", "opportunity", "Find opportunities: score idea vs. alternatives",
+                       f"{len(opp['options'])} options; top {opp['best']['title']} {opp['best']['score']}/5")
+        except Exception as e:
+            _checkpoint(vid, "discover", f"Opportunity scoring failed — {str(e)[:80]}")
+        opp_lines = [f"{o['score']}/5 — {o['title']}{' (your original idea)' if o['is_original'] else ''}: "
+                     f"{o.get('description', '')}" for o in opp["options"]]
+
         dims = feas.get("dimensions") or {}
         out = self._finish(
             vid, "discover", gate=gate, rationale=feas.get("rationale", ""), agent="feasibility",
@@ -229,12 +248,14 @@ class Orchestrator:
             sections=[
                 ("Feasibility by dimension (ASSUMPTION — the model's judgement over the sources listed)", [f"{k.title()}: {str(d.get('score', '?')).title()} — {d.get('reason', '')}"
                                               for k, d in dims.items() if isinstance(d, dict)]),
+                ("Opportunities scored (ASSUMPTION — model scores, weighted in code; you choose)", opp_lines),
                 ("Business map — 12 core aspects", [f"{a['label']}: {a['summary']}"
                                                     for a in (bmap or {}).get("aspects", [])]),
                 ("Key risks", feas.get("risks") or []),
                 ("Recommended next steps", feas.get("next_steps") or []),
             ],
-            links=[("Open the business mind map", "#mindmap")] if bmap else None,
+            links=([("Open the business mind map", "#mindmap")] if bmap else [])
+                  + ([("Open the opportunity scoring", artifact_url(vid, "opportunities"))] if opp["options"] else []),
             extra={"classification": feas.get("classification"),
                    "sources_used": sources.specific(feas.get("sources_used", []))})
         return {**out, "feasibility": feas}
@@ -291,6 +312,8 @@ class Orchestrator:
         _checkpoint(vid, "build", f"Checks: {test['output']}")
         _log_agent(vid, "build", "testing", "Automated prototype checks", test["output"], model="rule-based")
 
+        _log_agent(vid, "build", "development", "User guide (from the MVP spec)", "mvp/USER_GUIDE.md",
+                   model="rule-based")
         gate = gates.build_gate(test["passed"], len(features))
         return self._finish(
             vid, "build", gate=gate, rationale="", agent="development", action="MVP prototype build",
@@ -306,7 +329,8 @@ class Orchestrator:
                                       + (f" ({c['detail']})" if c["detail"] else "") for c in test["checks"]]),
                 ("Out of scope for now", spec.get("out_of_scope") or []),
             ],
-            links=[("Open the prototype", artifact_url(vid, "prototype"))])
+            links=[("Open the prototype", artifact_url(vid, "prototype")),
+                   ("Read the user guide", artifact_url(vid, "user-guide"))])
 
     # ── 4. Commercial ────────────────────────────────────────────────────
     def run_commercial(self, vid):
@@ -381,6 +405,11 @@ class Orchestrator:
                          OUTPUTS_DIR / vid / ARTIFACTS["store-page"])
         _checkpoint(vid, "launch", "Store page drafted (MOCKED — not published)")
         _log_agent(vid, "launch", "store_page", "Store page draft (MOCKED, not published)", model="rule-based")
+        _checkpoint(vid, "launch", "Drafting launch posts (DRAFT — never posted by VentureOS)…")
+        posts = self.marketing.draft_launch_posts(database.get_venture(vid), m,
+                                                  OUTPUTS_DIR / vid / ARTIFACTS["launch-posts"])
+        _log_agent(vid, "launch", "marketing", "Launch post drafts (not posted)",
+                   f"{len(posts['posts'])} drafts, {len(posts['blocked'])} blocked by guardrails")
         gate = gates.launch_gate(unsupported)
         return self._finish(
             vid, "launch", gate=gate, rationale="", agent="marketing", action="Launch materials",
@@ -394,8 +423,12 @@ class Orchestrator:
                       ("Store and delivery (MOCKED)", [
                           "Store page drafted locally and never published; publishing needs your Launch approval.",
                           "Payment → automatic delivery → refunds → reconciliation run as a MOCKED flow "
-                          "(see outputs/payment_test_log.md). No money moves."])],
-            links=[("Preview the store page (MOCKED)", artifact_url(vid, "store-page"))],
+                          "(see outputs/payment_test_log.md). No money moves."]),
+                      ("Launch post drafts (not posted — you post them after approval)",
+                       [f"{str(p.get('channel', '')).title()}: {p['text'][:160]}" for p in posts["posts"]]
+                       + [f"Blocked by guardrails — {p.get('channel')}: {p['blocked_reason']}" for p in posts["blocked"]])],
+            links=[("Preview the store page (MOCKED)", artifact_url(vid, "store-page")),
+                   ("Open the launch post drafts", artifact_url(vid, "launch-posts"))],
             extra={"unsupported_claims": unsupported})
 
     # ── 6. Operate (final) ───────────────────────────────────────────────
@@ -417,13 +450,23 @@ class Orchestrator:
                 _log_agent(vid, "operate", "case_research", "Comparable cases", f"{len(cases)} cases")
             except Exception:
                 cases = []
+        fresh = database.get_venture(vid)
+        _checkpoint(vid, "operate", "Writing the support kit (FAQ + reply templates)…")
+        kit = self.operations.support_kit(fresh, context, OUTPUTS_DIR / vid / ARTIFACTS["support-kit"])
+        _log_agent(vid, "operate", "operations", "Support kit (drafts, nothing sent)",
+                   f"{len(kit['faq'])} FAQ, {len(kit['reply_templates'])} reply templates")
+        _checkpoint(vid, "operate", "Writing the persevere-or-pivot memo…")
+        memo = self.operations.pivot_memo(fresh, context, plan, OUTPUTS_DIR / vid / ARTIFACTS["pivot-memo"])
+        _log_agent(vid, "operate", "operations", "Persevere-or-pivot memo",
+                   f"recommends {memo['recommendation']} (founder decides)")
         gate = gates.operate_gate()
         out = self._finish(
             vid, "operate", gate=gate, rationale="", agent="operations", action="Operating plan",
             facts={"kpis": kpis, "first_action": plan.get("first_action_tomorrow")},
             fallback_summary=(f"Your 90-day operating plan is ready with {len(kpis)} KPIs and a phased roadmap. "
                               f"The full venture report compiles every stage into one document."),
-            highlights=[("First action tomorrow", plan.get("first_action_tomorrow")), ("KPIs", len(kpis))],
+            highlights=[("Memo recommends", memo["recommendation"].title() + " (you decide)"),
+                        ("First action tomorrow", plan.get("first_action_tomorrow")), ("KPIs", len(kpis))],
             sections=[
                 ("KPIs (90-day targets)", [f"{k.get('metric')}: {k.get('target_90_days')} — {k.get('how_to_measure', '')}"
                                            for k in kpis]),
@@ -433,8 +476,13 @@ class Orchestrator:
                 ("Risks & mitigations", [f"{r.get('risk')} → {r.get('mitigation')}" for r in risks]),
                 ("Weekly operating rhythm", plan.get("weekly_rhythm") or []),
                 ("Comparable cases", [f"{c.get('company')}: {c.get('outcome')}" for c in cases]),
+                ("Persevere-or-pivot memo", ([memo["summary"]] if memo["summary"] else [])
+                 + [f"Would change our mind: {x}" for x in memo["signals"]]),
+                ("Support FAQ (drafts)", [f"{f['q']} — {f.get('a', '')}" for f in kit["faq"]]),
             ],
             links=[("Open the full venture report", artifact_url(vid, "report")),
+                   ("Read the persevere-or-pivot memo", artifact_url(vid, "pivot-memo")),
+                   ("Open the support kit", artifact_url(vid, "support-kit")),
                    ("Open the trust report", artifact_url(vid, "trust-report")),
                    ("Open the prototype", artifact_url(vid, "prototype"))])
         # Report is compiled after this stage's own report is saved, so it's included.

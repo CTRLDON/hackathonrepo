@@ -56,6 +56,7 @@ class DevelopmentAgent(BaseAgent):
                   "saved in your browser (localStorage).", "", "## Features"]
         readme += [f"- **{f.get('name', '')}** — {f.get('purpose', '')}" for f in features]
         (output_dir / "README.md").write_text("\n".join(readme) + "\n", encoding="utf-8")
+        (output_dir / "USER_GUIDE.md").write_text(user_guide(name, brief, spec), encoding="utf-8")
 
         evidence_ledger.add(venture["id"], type="verified",
                             claim=f"Built clickable prototype ({len(features)} features)",
@@ -142,3 +143,26 @@ function add(ev, fid) {{
 document.querySelectorAll("[data-feature]").forEach((s) => render(s.dataset.feature));
 </script></body></html>
 """
+
+
+def user_guide(name, brief, spec):
+    """User docs for the MVP, written straight from the spec (no model call, so nothing is invented)."""
+    features = (spec.get("features") or [])[:5]
+    md = [f"# {name} — user guide", "",
+          (brief.get("concept") or brief.get("solution") or "").strip(), "",
+          "## Getting started",
+          "1. Open `index.html` in any modern browser — no install, account or server needed.",
+          "2. Your data stays in this browser only (localStorage). Clearing site data deletes it.",
+          "3. This is an MVP prototype: anything that would need a backend or AI is simulated "
+          "in the page (**MOCKED**).", "",
+          "## Features", ""]
+    for i, f in enumerate(features, 1):
+        md += [f"### {i}. {f.get('name', 'Feature')}",
+               f"**What it's for:** {f.get('purpose', '—')}  ",
+               f"**You'll know it worked when:** {f.get('acceptance', '—')}", ""]
+    oos = spec.get("out_of_scope") or []
+    if oos:
+        md += ["## Not in this version", *[f"- {x}" for x in oos], ""]
+    md += ["## Help", "Questions or bugs: contact the founder directly. Nothing is collected or sent "
+           "automatically by this prototype.", ""]
+    return "\n".join(md)

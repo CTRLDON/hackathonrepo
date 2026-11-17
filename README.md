@@ -20,6 +20,7 @@ Run the smoke tests with `make setup` once, then `make test` (no model needed). 
 | Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests, including reworded variants, refused before any model call (`services/guardrails.py`, 53 cases in `evals/trick_prompts.json`) | Working |
 | 1. Discover | Parallel sourced web research on competitors, pain points, market size, barriers | Working |
 | 1. Discover | Five-dimension feasibility verdict | Working |
+| 1. Discover | Find opportunities: the idea plus 3 alternative angles scored 1–5 on pain, founder fit, reach, buildability and gap; weighted total computed in code; the founder chooses (`agents/opportunity_agent.py`) | Working |
 | 1. Discover | 12-aspect business map and mind map | Working |
 | 1. Discover | Gate: GO / REPEAT / PIVOT / STOP verdict | Working |
 | 2. Validate | Riskiest assumptions checked against web evidence; Lean Canvas via the business map | Working |
@@ -29,6 +30,7 @@ Run the smoke tests with `make setup` once, then `make test` (no model needed). 
 | 2. Validate | Gate: contradicted ≥ half → PIVOT; none contradicted and ≥ 1 supported → GO; else REPEAT | Working |
 | 3. Build | MVP feature specification | Working |
 | 3. Build | Clickable prototype written to `outputs/<venture_id>/mvp/` | Working |
+| 3. Build | User guide (`USER_GUIDE.md`) written straight from the MVP spec | Working |
 | 3. Build | Automated prototype checks (HTML, features, no network calls, JS syntax) | Working |
 | 3. Build | Gate: ≥ 3 features AND all checks pass → GO | Working |
 | 4. Commercial setup | Pricing strategy | Working |
@@ -36,13 +38,15 @@ Run the smoke tests with `make setup` once, then `make test` (no model needed). 
 | 4. Commercial setup | Legal policy drafts (terms, privacy, refunds), template only, not legal advice | STUBBED |
 | 4. Commercial setup | Gate: gross margin > 20% → GO | Working |
 | 5. Launch | Launch copy, tagline, claim-to-evidence mapping | Working |
+| 5. Launch | Launch-post drafts (LinkedIn, X, community) checked by the output guardrail; never posted by the system | Working |
 | 5. Launch | Store-page publishing (never published) | MOCKED |
 | 5. Launch | Sale to cash: `payments.py`, `delivery.py`, `refunds.py`, `reconcile.py` (no real or sandbox payments) | MOCKED |
 | 5. Launch | Output guardrail: income promises, fake urgency and fake social proof in launch copy are blocked and fail the gate | Working |
 | 5. Launch | Gate: no unsupported claims → GO | Working |
 | 6. Operate & Learn | 90-day operating plan: KPIs, roadmap, risks | Working |
 | 6. Operate & Learn | Comparable historical-case research | Working |
-| 6. Operate & Learn | Persevere-or-pivot memo and full venture report | Working |
+| 6. Operate & Learn | Support kit: FAQ and reply templates (drafts; nothing is sent, refunds are never automatic) | Working |
+| 6. Operate & Learn | Persevere-or-pivot memo (persevere / pivot / stop, with measurable signals that would change it) and full venture report | Working |
 | Cross-cutting | Gate outcomes chosen by the founder: continue / repeat / pivot back / stop | Working |
 | Cross-cutting | Founder approval enforced in code before advancing, publishing, sending or spending | Working |
 | Cross-cutting | Every agent action (six phases, founder interview, Ask AI, research, gates, founder choices, refusals) logged; `make export` writes `decision_log.json` | Working |

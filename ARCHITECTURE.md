@@ -39,10 +39,10 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
 ### 1. Discover
 
 - **Core step: Find opportunities.** The phase sharpens the starting idea, defines the market and scores the idea against alternatives.
-- **Agents:** `ResearchAgent` (`agents/research_agent.py`) runs four research topics in parallel: competitors and pricing, customer pain points, market size and growth, and barriers and regulation. `FeasibilityAgent` (`agents/feasibility_agent.py`) gives a verdict across five dimensions, each with its reasoning. `BusinessMapAgent` (`agents/business_map_agent.py`) builds the 12-aspect business map.
+- **Agents:** `ResearchAgent` (`agents/research_agent.py`) runs four research topics in parallel: competitors and pricing, customer pain points, market size and growth, and barriers and regulation. `FeasibilityAgent` (`agents/feasibility_agent.py`) gives a verdict across five dimensions, each with its reasoning. `BusinessMapAgent` (`agents/business_map_agent.py`) builds the 12-aspect business map. `OpportunityAgent` (`agents/opportunity_agent.py`) finds opportunities: it proposes three alternative angles on the same problem (narrower segment, different format, different business model), scores them and the original idea 1–5 on five criteria (pain 30%, founder fit 25%, reach 15%, buildability 15%, gap 15%), and ranks them by a weighted total computed in code. Excluded products are filtered out, scores are labelled `ASSUMPTION`, and the founder chooses; the system never swaps the idea.
 - **Tools:** `tools/web_search.py` runs free web search through `ddgs`, with an HTML fallback. `services/evidence_ledger.py` stores every finding with its source URL, or as `type=assumption` when it has none.
 - **Method:** customer interviews follow the Mom Test: the system writes an interview script about past behaviour and real pain (not opinions of the idea), delivered with the Validate plan, and the founder runs the real interviews. It never invents interview answers. The phase does desk research with citations and scores the idea against existing alternatives (competitors and the status quo). The 12-aspect map marks each aspect `strong` (evidence), `partial` (stated, unverified) or `gap`.
-- **Output:** a stage report, the evidence ledger entries, the business mind map, and a gate decision (`outputs/phase1_gate_*.json` in the demo run).
+- **Output:** a stage report, the evidence ledger entries, the business mind map, `outputs/<venture>/discover/opportunities.md` (the scored options), and a gate decision (`outputs/phase1_gate_*.json` in the demo run).
 
 ### 2. Validate
 
@@ -63,7 +63,8 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
   - `DevelopmentAgent` (`agents/development_agent.py`) generates a self-contained, clickable prototype. If AI generation fails, it falls back to a deterministic template (`fallback_prototype`).
   - `TestingAgent` (`agents/testing_agent.py`) runs the automated checks.
 - **Tests (the gate):** the prototype file exists, the HTML parses, the page has a title, it contains working JavaScript, it is self-contained (no external files), it makes no network calls, every MVP feature is present, and the JavaScript syntax is valid (`node --check`).
-- **Output:** `outputs/<venture>/mvp/index.html`, which is served sandboxed with a strict CSP, plus the check results in the stage report.
+- **User docs:** `outputs/<venture>/mvp/USER_GUIDE.md` (getting started, each feature with what it is for and how you know it worked, what is out of scope, where data lives). It is written straight from the spec with no model call, so it cannot describe features that do not exist.
+- **Output:** `outputs/<venture>/mvp/index.html`, which is served sandboxed with a strict CSP, the user guide, plus the check results in the stage report.
 
 ### 4. Commercial setup
 
@@ -79,14 +80,16 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
 - **Store page (MOCKED):** `services/store_page.py` renders `outputs/<venture>/launch/store_page.html` from the launch copy and price (no reviews, testimonials or countdowns). `POST /api/ventures/{id}/publish-store-page` refuses (403) until the founder approves the Launch gate, and even then only records a MOCKED publish.
 - **Automatic delivery (MOCKED):** the sale-to-cash flow below shows how a confirmed (mock) payment triggers delivery.
 - **Output guardrail:** `guardrails.check_claim` blocks income promises, fake urgency and fake social proof in the tagline, one-liner, call to action and every claim, whether or not a source exists; blocked copy fails the Launch gate.
-- **Output:** the launch-materials stage report, with claims split into backed by evidence and need evidence first.
+- **Launch posts:** `MarketingAgent.draft_launch_posts` writes LinkedIn, X and community-post drafts in the founder's voice from evidence-backed claims only. Every draft passes `guardrails.check_claim`; failing drafts are dropped and listed as blocked. The system never posts: the founder publishes the drafts from their own accounts after approving the Launch gate.
+- **Output:** the launch-materials stage report (claims split into backed by evidence and need evidence first), `launch/store_page.html` and `launch/launch_posts.md`.
 
 ### 6. Operate and learn
 
 - **Core step:** none. This phase is ongoing operation.
 - **Agents:** `OperationsAgent` (`agents/operations_agent.py`) builds the 90-day plan: KPIs with targets and how to measure them, a 30/60/90-day roadmap, risks with mitigations, a weekly operating rhythm, and the first action for tomorrow. `CaseResearchAgent` (`agents/case_research_agent.py`) finds comparable real-world cases for the top risk.
-- **Method:** support, metrics review and a persevere-or-pivot memo based on the KPIs and comparable cases.
-- **Output:** `outputs/<venture>/final/venture_report.html`, which compiles every stage report into one document.
+- **Support:** `OperationsAgent.support_kit` drafts an FAQ (pricing, refunds, privacy, MVP limits) and reply templates (refund request, bug report, feature request, how-to). Nothing is sent and refunds are never automatic.
+- **Persevere-or-pivot memo:** `OperationsAgent.pivot_memo` recommends persevere, pivot or stop from the stage results only, lists evidence for and against, and names measurable signals with thresholds that would change the recommendation. It is a recommendation; the founder decides at the final gate.
+- **Output:** `final/venture_report.html` (every stage report in one document), `final/support_kit.md` and `final/persevere_or_pivot_memo.md`.
 
 ## Gates
 
