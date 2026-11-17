@@ -34,14 +34,14 @@ Every gate is a founder decision. The system recommends one outcome, and the fou
 
 ## Phases
 
-The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. Values and available time are collected as part of the brief.
+The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. Available time and values are not separate interview fields yet; the founder can state them in the brief text, and they are kept with it.
 
 ### 1. Discover
 
 - **Core step: Find opportunities.** The phase sharpens the starting idea, defines the market and scores the idea against alternatives.
 - **Agents:** `ResearchAgent` (`agents/research_agent.py`) runs four research topics in parallel: competitors and pricing, customer pain points, market size and growth, and barriers and regulation. `FeasibilityAgent` (`agents/feasibility_agent.py`) gives a verdict across five dimensions, each with its reasoning. `BusinessMapAgent` (`agents/business_map_agent.py`) builds the 12-aspect business map.
 - **Tools:** `tools/web_search.py` runs free web search through `ddgs`, with an HTML fallback. `services/evidence_ledger.py` stores every finding with its source URL, or as `type=assumption` when it has none.
-- **Method:** the interview follows the Mom Test, asking about past behaviour and real pain rather than opinions of the idea. The phase does desk research with citations and scores the idea against existing alternatives (competitors and the status quo). The 12-aspect map marks each aspect `strong` (evidence), `partial` (stated, unverified) or `gap`.
+- **Method:** customer interviews follow the Mom Test: the system writes an interview script about past behaviour and real pain (not opinions of the idea), delivered with the Validate plan, and the founder runs the real interviews. It never invents interview answers. The phase does desk research with citations and scores the idea against existing alternatives (competitors and the status quo). The 12-aspect map marks each aspect `strong` (evidence), `partial` (stated, unverified) or `gap`.
 - **Output:** a stage report, the evidence ledger entries, the business mind map, and a gate decision (`outputs/phase1_gate_*.json` in the demo run).
 
 ### 2. Validate
@@ -49,10 +49,10 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
 - **Core step: Design the business.** The phase produces a Lean Canvas and then tests demand.
 - **Agents:** `ValidationAgent` (`agents/validation_agent.py`) and `BusinessMapAgent`.
 - **Method:**
-  - **Lean Canvas.** The 12-aspect business map covers the Lean Canvas blocks: problem, solution, customer segments, value proposition, channels, revenue, costs and risks.
+  - **Lean Canvas.** The Validate report renders a Lean Canvas from the 12-aspect business map: problem, customer segments, unique value proposition, solution, channels, revenue streams, cost structure, key metrics (waitlist sign-ups vs. target) and unfair advantage. Blocks without evidence are labelled `ASSUMPTION`.
   - **Riskiest assumptions.** The agent picks the four riskiest assumptions and checks each one against live web evidence. Each is marked `supported`, `contradicted` or `unverified`. An assumption with no clear evidence stays unverified.
   - **Lean experiments.** Each experiment states its hypothesis, method, success metric, cost and time.
-  - **Landing-page demand test (MOCKED).** No page is deployed. Before the test, the founder sets a target (for example, 100 waitlist sign-ups in 14 days). After the test, the founder enters the real count. `waitlist_gate(target, actual)` in `backend/gates.py` compares the two. The system never generates or estimates sign-ups.
+  - **Landing-page demand test (MOCKED).** No page is deployed. The target is fixed in code before the test (`WAITLIST_TARGET`: 100 waitlist sign-ups in 14 days). After the test, the founder enters the real count on the Overview, and `waitlist_gate(actual, target)` in `backend/gates.py` scores it. The system never generates or estimates sign-ups.
 - **Output:** `outputs/<venture>/validation/validation_plan.md`, which holds the assumptions, the experiments and a Mom Test customer-interview script.
 
 ### 3. Build
@@ -76,7 +76,7 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
 
 - **Core step: Open the store; deliver automatically.**
 - **Agents:** `MarketingAgent` (`agents/marketing_agent.py`) writes the tagline, one-liner, call to action and launch-post copy. It maps every marketing claim to evidence; a claim with no evidence is listed as unsupported and cannot be published.
-- **Store page (MOCKED):** the store page is generated locally and never published. Publishing requires `approval_manager.require_approved(...)`.
+- **Store page (MOCKED):** `services/store_page.py` renders `outputs/<venture>/launch/store_page.html` from the launch copy and price (no reviews, testimonials or countdowns). `POST /api/ventures/{id}/publish-store-page` refuses (403) until the founder approves the Launch gate, and even then only records a MOCKED publish.
 - **Automatic delivery (MOCKED):** the sale-to-cash flow below shows how a confirmed (mock) payment triggers delivery.
 - **Output:** the launch-materials stage report, with claims split into backed by evidence and need evidence first.
 
@@ -95,7 +95,7 @@ Every phase ends in a gate. A gate is one of three things: a pre-set evidence th
 |---|---|---|---|
 | 1. Discover | `discover_gate` | Feasibility verdict across five dimensions, from sourced research | GO / REPEAT / PIVOT / STOP as given by the verdict |
 | 2. Validate | `validate_gate` | Riskiest assumptions vs. web evidence | Contradicted ≥ half → **PIVOT**; none contradicted and ≥ 1 supported → **GO**; otherwise **REPEAT** |
-| 2. Validate | `waitlist_gate(target, actual)` | Pre-set landing-page threshold, e.g. 100 sign-ups in 14 days | Target met → **GO**. Far below target (e.g. 12 of 100) → **STOP** or **PIVOT** instead of spinning the result |
+| 2. Validate | `waitlist_gate(actual, target)` | Real sign-ups vs. the pre-set target (100 in 14 days) | ≥ 100% → **GO**; ≥ 50% → **REPEAT**; ≥ 20% → **PIVOT**; below → **STOP** (12 of 100 → STOP instead of spinning the result) |
 | 3. Build | `build_gate` | All automated prototype checks pass AND ≥ 3 MVP features | **GO**, else **REPEAT** |
 | 4. Commercial setup | `commercial_gate` | Gross margin > 20% | **GO**, else **REPEAT** |
 | 5. Launch | `launch_gate` | No unsupported marketing claims | **GO**, else **REPEAT** |
@@ -105,12 +105,12 @@ Every phase ends in a gate. A gate is one of three things: a pre-set evidence th
 
 - **Continue:** advance to the next phase.
 - **Repeat stage:** clear the phase's evidence and run it again.
-- **Pivot back:** return to the previous phase with the new direction.
+- **Pivot back:** return to the previous phase with the new direction (`PIVOT_TARGET`; Discover pivots onto itself with a reframed idea). Later phases are reset to not started.
 - **Stop venture:** the venture is marked stopped and nothing further runs.
 
 The recommended outcome is highlighted. Approving never silently advances past a STOP: continuing after a STOP is an explicit, logged override.
 
-**Enforced in code.** `backend/approval_manager.py` stores each gate as a pending approval. The orchestrator refuses to run or advance a phase while an approval is pending or unresolved. `require_approved()` raises `ApprovalRequired` for any publish, send or spend action that has no recorded founder approval. Each founder choice is written to the decision log with `approved_by: "founder"`.
+**Enforced in code.** `backend/approval_manager.py` stores each gate as a pending approval. The orchestrator refuses to run or advance a phase while an approval is pending or unresolved. `require_approved()` raises `ApprovalRequired` when the (MOCKED) store page is published without the founder's Launch approval, and a refund without `approved_by="founder"` raises the same error. Each founder choice is written to the decision log with `approved_by: "founder"`.
 
 **STOP on weak evidence.** In the demo run, the weak idea "An AI that predicts lottery numbers with 99% accuracy" goes through Discover. The feasibility verdict is `NOT FEASIBLE` and the gate is **STOP**, because lottery draws are random, the core claim is impossible, and the cited sources do not support it (`outputs/phase1_gate_*.json`). The system recommends not launching instead of producing a business plan.
 
@@ -119,9 +119,9 @@ The recommended outcome is highlighted. Approving never silently advances past a
 Everything in this section is **MOCKED**. No payment provider, sandbox or real money is involved. The point is to show the control flow and its safety properties.
 
 - **`services/payments.py` (MOCKED checkout).** Records an order and a mock payment event. Each event carries an idempotency key.
-- **`services/delivery.py` (MOCKED delivery).** Grants an access or download token only after a confirmed mock payment. It is idempotent: a replayed or duplicate payment event never delivers twice.
+- **`services/delivery.py` (MOCKED delivery).** Grants an access or download token only after a confirmed mock payment for the full price (a short payment is held). It is idempotent: a replayed or duplicate payment event never delivers twice.
 - **`services/refunds.py` (MOCKED refunds).** A refund requires founder approval, because the system never moves money by itself. A refund revokes the buyer's access.
-- **`services/reconcile.py`.** Matches orders, payments, fees and payouts, and reports any mismatch (for example, a payment with no order or a delivery with no payment).
+- **`services/reconcile.py`.** Matches orders, payments, fees and payouts, and reports any mismatch (for example, a short payment, a paid order with no payment, or access still active after a refund).
 - **`scripts/run_payment_test.py`.** Runs the whole flow: order, mock payment, delivery, duplicate event (no double delivery), refund request, founder approval, access revoked, reconciliation. It writes the result to `outputs/payment_test_log.md`.
 
 ```mermaid
