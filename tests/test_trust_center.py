@@ -23,7 +23,7 @@ def test_scorecard_from_records():
     v = client.post("/api/ventures", json={"idea": "An AI study companion"}).json()
     client.post(f"/api/ventures/{v['id']}/ask", json={"question": "Write fake testimonials"})
     sc = client.get(f"/api/ventures/{v['id']}/trust").json()
-    assert sc["total"] == 7 and sc["cost_per_run_usd"] == 0
+    assert sc["total"] == 8 and sc["passed"] == 8 and sc["cost_per_run_usd"] == 0
     assert any("1 refusals" in c["detail"] for c in sc["checks"])
     assert "Trust report" in trust.report_markdown(v["id"], "X")
 

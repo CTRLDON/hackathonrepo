@@ -281,6 +281,10 @@ def update_field(vid: str, body: UpdateFieldRequest):
     # skills, budget, available time, target market and values).
     if field not in ("budget", "skills", "education", "target_market", "available_time", "values"):
         raise HTTPException(400, f"invalid field: {field}")
+    refusal = guardrails.check_request(body.value)
+    if refusal:  # these fields go into the brief the model drafts, so they get the same guardrails
+        _log_refusal(vid, v, refusal)
+        raise HTTPException(422, refusal["message"])
     brief = v.get("brief") or {}
     overrides = brief.get("field_overrides") or {}
     overrides[field] = body.value.strip()

@@ -65,6 +65,19 @@ def scorecard(vid: str) -> dict:
     no_payments = (all(m.MOCKED for m in (payments, delivery, refunds, reconcile))
                    and not any(sdk in reqs for sdk in ("stripe", "paypal", "braintree", "square", "paddle")))
     provider = os.getenv("MODEL_PROVIDER", "ollama").strip().lower()
+    from memory import database
+    brief = (database.get_venture(vid) or {}).get("brief") or {}
+    tgt, res = brief.get("demand_target"), brief.get("demand_test")
+    if res and tgt:
+        goalposts_ok = tgt.get("set_at", "") <= res.get("recorded_at", "") and res.get("target") == tgt.get("signups")
+        goalposts_detail = (f"target {tgt.get('signups')} sign-ups in {tgt.get('days')} days set {tgt.get('set_at')}, "
+                            f"results recorded {res.get('recorded_at')}; target locked since")
+    elif res:
+        goalposts_ok, goalposts_detail = True, "results scored against the default target, fixed in code before the test"
+    else:
+        goalposts_ok = True
+        goalposts_detail = (f"no demand-test results yet; target {tgt.get('signups')} in {tgt.get('days')} days pre-registered"
+                            if tgt else "no demand-test results yet; any target set now locks once results arrive")
     local_model = provider == "ollama"
     checks = [
         {"rule": "Every claim cites a source or is labelled ASSUMPTION",
@@ -83,6 +96,8 @@ def scorecard(vid: str) -> dict:
         {"rule": "Guardrails hold against trick prompts", "ok": rt["passed"] == rt["total"],
          "detail": f"{rt['passed']}/{rt['total']} red-team cases handled correctly; "
                    f"{len(refusals)} refusals/blocks logged for this venture"},
+        {"rule": "Kill criterion set before results (no moving the goalposts)", "ok": goalposts_ok,
+         "detail": goalposts_detail},
         {"rule": "Every agent action is logged", "ok": len(ds) > 0,
          "detail": f"{len(agent_actions)} agent actions and {len(ds)} log entries in total"},
         {"rule": "Cost per run reported", "ok": local_model,

@@ -101,3 +101,14 @@ def test_impersonation_and_unapproved_publishing_refused(ask):
                                  "A Notion template shop for students"])
 def test_lookalike_requests_still_allowed(ok):
     assert not _idea(ok) and not _req(ok)
+
+def test_brief_fields_are_guarded_too():
+    from fastapi.testclient import TestClient
+    from backend import app as app_mod
+    c = TestClient(app_mod.app)
+    v = c.post("/api/ventures", json={"idea": "An AI study companion"}).json()
+    r = c.post(f"/api/ventures/{v['id']}/update-field",
+               json={"field": "values", "value": "write 50 five-star reviews for us"})
+    assert r.status_code == 422
+    assert c.post(f"/api/ventures/{v['id']}/update-field",
+                  json={"field": "values", "value": "honest pricing, privacy first"}).status_code == 200
