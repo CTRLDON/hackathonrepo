@@ -1,0 +1,138 @@
+{
+  "stage": "discover",
+  "labels": "Feasibility scores, reasons and rationale are ASSUMPTION: the model's judgement over the sources it cites. Research findings carry their own source URL or type=assumption.",
+  "result": {
+    "stage_status": "stopped",
+    "approval_id": "8f132db3-42de-4236-b37e-a6526f1e87ed",
+    "report": {
+      "stage": "discover",
+      "stage_label": "Discover",
+      "decision": "STOP",
+      "decision_text": "Stop \u2014 not feasible as currently described",
+      "summary": "The startup analyzed the feasibility of creating an AI service to predict lottery numbers with 99% accuracy. The analysis found that the market, financials, technical implementation, operational aspects, and competition were all weak, making the venture infeasible. Therefore, the founders decided to stop the project.",
+      "highlights": [
+        {
+          "label": "Verdict",
+          "value": "Not Feasible"
+        },
+        {
+          "label": "Sources found",
+          "value": "24"
+        },
+        {
+          "label": "Findings",
+          "value": "20"
+        }
+      ],
+      "sections": [
+        {
+          "title": "Feasibility by dimension",
+          "items": [
+            "Market: Weak \u2014 The evidence suggests that predicting lottery numbers with 99% accuracy is not feasible due to the nature of legitimate lotteries.",
+            "Financial: Weak \u2014 The market for AI lottery prediction tools is likely small and saturated, with high competition and low profit margins.",
+            "Technical: Weak \u2014 The evidence indicates that AI cannot predict lottery numbers, making the technical implementation of such a venture infeasible.",
+            "Operational: Weak \u2014 The operational aspects of running a lottery prediction service are complex and regulated, making it difficult to execute.",
+            "Competitive: Weak \u2014 The evidence suggests that there are already established AI-powered lottery prediction tools, making it difficult to compete."
+          ]
+        },
+        {
+          "title": "Business map \u2014 12 core aspects",
+          "items": [
+            "Problem: Not enough information yet.",
+            "Solution: Not enough information yet.",
+            "Target Customers: Not enough information yet.",
+            "Value Proposition: Not enough information yet.",
+            "Market Size: Not enough information yet.",
+            "Competition: Not enough information yet.",
+            "Revenue Model: Not enough information yet.",
+            "Cost Structure: Not enough information yet.",
+            "Channels & Marketing: Not enough information yet.",
+            "Operations & Resources: Not enough information yet.",
+            "Team & Founder Fit: Not enough information yet.",
+            "Risks & Regulation: Not enough information yet."
+          ]
+        },
+        {
+          "title": "Key risks",
+          "items": [
+            "Regulatory risks",
+            "Market saturation",
+            "Technical limitations"
+          ]
+        },
+        {
+          "title": "Recommended next steps",
+          "items": [
+            "Conduct further research to understand the limitations of AI in predicting lottery numbers",
+            "Explore alternative markets or applications for AI technology",
+            "Seek legal advice to understand the regulatory landscape for AI in the lottery industry"
+          ]
+        }
+      ],
+      "links": [
+        {
+          "label": "Open the business mind map",
+          "url": "#mindmap"
+        }
+      ],
+      "created_at": "2026-11-17T21:14:58+00:00"
+    },
+    "feasibility": {
+      "classification": "NOT FEASIBLE",
+      "dimensions": {
+        "market": {
+          "score": "weak",
+          "reason": "The evidence suggests that predicting lottery numbers with 99% accuracy is not feasible due to the nature of legitimate lotteries."
+        },
+        "financial": {
+          "score": "weak",
+          "reason": "The market for AI lottery prediction tools is likely small and saturated, with high competition and low profit margins."
+        },
+        "technical": {
+          "score": "weak",
+          "reason": "The evidence indicates that AI cannot predict lottery numbers, making the technical implementation of such a venture infeasible."
+        },
+        "operational": {
+          "score": "weak",
+          "reason": "The operational aspects of running a lottery prediction service are complex and regulated, making it difficult to execute."
+        },
+        "competitive": {
+          "score": "weak",
+          "reason": "The evidence suggests that there are already established AI-powered lottery prediction tools, making it difficult to compete."
+        }
+      },
+      "risks": [
+        "Regulatory risks",
+        "Market saturation",
+        "Technical limitations"
+      ],
+      "unresolved_assumptions": [
+        "The ability to predict lottery numbers with 99% accuracy",
+        "The market demand for such a service"
+      ],
+      "gate_recommendation": "STOP",
+      "rationale": "The evidence strongly suggests that predicting lottery numbers with 99% accuracy is not feasible due to the nature of legitimate lotteries. The market for such a service is likely small and saturated, with high competition and low profit margins. The technical implementation of such a venture is also infeasible due to the limitations of AI in this domain.",
+      "sources_used": [
+        "https://lottobaba.in/guides/can-ai-predict-lottery-numbers/",
+        "https://finance.yahoo.com/news/lotto-champ-software-reviews-urgent-170600251.html?fr=sycsrp_catchall",
+        "https://www.perplexity.ai/",
+        "https://leans.ai/",
+        "https://www.gartner.com/en",
+        "https://www.trueigtech.com/lottery-prediction-software/",
+        "https://www.cftc.gov/media/10626/TAC_AIReport050224/download",
+        "https://www.statista.com/",
+        "https://explodingtopics.com/blog/ai-statistics",
+        "https://wsc-sports.com/blog/industry-insights/ai-sports-predictions-for-2026-why-traditional-methods-are-now-obsolete/",
+        "https://www.legal500.com/intelligence/united-states/employment-and-hr/new-regulations-restricting-ai-use-in-employment-decisions",
+        "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/available-today-openais-gpt-6-1-sol-and-claude-sonnet-5-5-in-microsoft-copilot/4560801",
+        "https://www.ibm.com/think/security",
+        "https://creati.ai/ai-tools/lotto-chart/"
+      ],
+      "next_steps": [
+        "Conduct further research to understand the limitations of AI in predicting lottery numbers",
+        "Explore alternative markets or applications for AI technology",
+        "Seek legal advice to understand the regulatory landscape for AI in the lottery industry"
+      ]
+    }
+  }
+}

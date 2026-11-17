@@ -4,7 +4,7 @@ VentureOS is an open-source team of AI agents that takes a founder's brief throu
 
 ## Overview
 
-A single FastAPI process (`backend/app.py`) serves the web UI (`frontend/`) and wraps an `Orchestrator` (`backend/orchestrator.py`). The orchestrator runs one phase at a time. Each phase drives specialised agents (`agents/<role>.py`) and records sourced evidence in the evidence ledger. It then computes a gate recommendation with pure functions in `backend/gates.py`, writes a plain-English stage report, and opens a pending approval (`backend/approval_manager.py`). The pipeline does not move until the founder resolves that approval in the UI. Every agent action and every founder choice goes into the decision log, which is exported to `decision_log.json`.
+A single FastAPI process (`backend/app.py`) serves the web UI (`frontend/`) and wraps an `Orchestrator` (`backend/orchestrator.py`). The orchestrator runs one phase at a time. Each phase drives specialised agents (`agents/<role>.py`) and records sourced evidence in the evidence ledger. It then computes a gate recommendation with pure functions in `backend/gates.py`, writes a plain-English stage report, and opens a pending approval (`backend/approval.py`). The pipeline does not move until the founder resolves that approval in the UI. Every agent action and every founder choice goes into the decision log, which is exported to `decision_log.json`.
 
 ```mermaid
 flowchart LR
@@ -34,7 +34,7 @@ Every gate is a founder decision. The system recommends one outcome, and the fou
 
 ## Phases
 
-The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. Available time and values are not separate interview fields yet; the founder can state them in the brief text, and they are kept with it.
+The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. The founder adds available time and values on the confirm-before-drafting card (editable later on the Overview); they are merged into the answers the brief is drafted from, so the brief covers skills, budget, available time, target market and values.
 
 ### 1. Discover
 
@@ -78,6 +78,7 @@ The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a
 - **Agents:** `MarketingAgent` (`agents/marketing_agent.py`) writes the tagline, one-liner, call to action and launch-post copy. It maps every marketing claim to evidence; a claim with no evidence is listed as unsupported and cannot be published.
 - **Store page (MOCKED):** `services/store_page.py` renders `outputs/<venture>/launch/store_page.html` from the launch copy and price (no reviews, testimonials or countdowns). `POST /api/ventures/{id}/publish-store-page` refuses (403) until the founder approves the Launch gate, and even then only records a MOCKED publish.
 - **Automatic delivery (MOCKED):** the sale-to-cash flow below shows how a confirmed (mock) payment triggers delivery.
+- **Output guardrail:** `guardrails.check_claim` blocks income promises, fake urgency and fake social proof in the tagline, one-liner, call to action and every claim, whether or not a source exists; blocked copy fails the Launch gate.
 - **Output:** the launch-materials stage report, with claims split into backed by evidence and need evidence first.
 
 ### 6. Operate and learn
@@ -106,11 +107,11 @@ Every phase ends in a gate. A gate is one of three things: a pre-set evidence th
 - **Continue:** advance to the next phase.
 - **Repeat stage:** clear the phase's evidence and run it again.
 - **Pivot back:** return to the previous phase with the new direction (`PIVOT_TARGET`; Discover pivots onto itself with a reframed idea). Later phases are reset to not started.
-- **Stop venture:** the venture is marked stopped and nothing further runs.
+- **Stop venture:** the phase is marked stopped; nothing runs again unless the founder explicitly re-runs it, which is logged. While a decision is pending, no phase can run.
 
 The recommended outcome is highlighted. Approving never silently advances past a STOP: continuing after a STOP is an explicit, logged override.
 
-**Enforced in code.** `backend/approval_manager.py` stores each gate as a pending approval. The orchestrator refuses to run or advance a phase while an approval is pending or unresolved. `require_approved()` raises `ApprovalRequired` when the (MOCKED) store page is published without the founder's Launch approval, and a refund without `approved_by="founder"` raises the same error. Each founder choice is written to the decision log with `approved_by: "founder"`.
+**Enforced in code.** `backend/approval.py` stores each gate as a pending approval. The orchestrator refuses to run or advance a phase while an approval is pending or unresolved. `require_approved()` raises `ApprovalRequired` when the (MOCKED) store page is published without the founder's Launch approval, and a refund without `approved_by="founder"` raises the same error. Each founder choice is written to the decision log with `approved_by: "founder"`.
 
 **STOP on weak evidence.** In the demo run, the weak idea "An AI that predicts lottery numbers with 99% accuracy" goes through Discover. The feasibility verdict is `NOT FEASIBLE` and the gate is **STOP**, because lottery draws are random, the core claim is impossible, and the cited sources do not support it (`outputs/phase1_gate_*.json`). The system recommends not launching instead of producing a business plan.
 
@@ -176,6 +177,8 @@ flowchart TD
 - **Evidence ledger.** `services/evidence_ledger.py` stores each claim with its source URL. A claim with no source is stored with `type=assumption` and shown as `ASSUMPTION`.
 - **Decision log.** `services/decision_log.py` records each agent action and each founder choice. `scripts/export_decision_log.py` exports them to `decision_log.json`, where each entry has `timestamp`, `agent`, `action`, `sources` (URLs), `model`, `cost` (USD, `0` for local models) and `approved_by` (`"founder"` for gated actions, otherwise `null`).
 - **Guardrails.** `services/guardrails.py` is a deterministic pre-filter that runs before any request reaches a model. It refuses excluded products: physical goods; financial, investment or crypto products; and health or legal advice. It also refuses must-never requests: fake reviews, testimonials or sign-ups; countdown or urgency tricks; impersonating the founder, a customer or a brand; promises of income or success; storing passwords or card numbers; and moving money.
+- **Trust Center.** `services/trust.py` runs every case in `evals/trick_prompts.json` against the guardrails (live in the UI and in `tests/test_trust_center.py`), classifies any prompt a visitor types, and computes a seven-rule honesty scorecard from the venture's own records: sourced vs. `ASSUMPTION` claims, gate recommendations vs. founder decisions and overrides, approved publishes, refusals and blocked copy, mocks, and cost. Operate writes it as `trust_report.md`.
+- **Prompts.** Each agent's system prompt is mirrored to `prompts/<agent>.md` by `scripts/export_prompts.py`.
 - **Outputs.** `outputs/` holds the committed demo run, named `phase<N>_step<M>_<name>` and `phase<N>_gate_<name>`, plus `payment_test_log.md`. The files generated for each venture go under `outputs/<venture>/`.
 
 ## Built vs. stubbed
@@ -198,11 +201,12 @@ flowchart TD
 | Sale to cash: reconciliation | MOCKED (runs on mock records) |
 | Operate: 90-day plan, comparable cases, venture report | Working |
 | Gates, founder approval, decision log, evidence ledger | Working |
+| Trust Center (red-team self-test, honesty scorecard), launch-copy guardrail | Working |
 
 ## Roadmap
 
 1. **Real demand signals.** Deploy the landing page behind a founder-approved publish step, with a privacy-respecting sign-up counter feeding `waitlist_gate`.
 2. **Payment adapters.** Add real payment adapters behind the existing `payments.py`, `delivery.py`, `refunds.py` and `reconcile.py` interfaces, only once a provider is chosen. Money movement would still require founder approval.
-3. **Per-phase evals.** Add an evaluation harness under `evals/`, including trick prompts that test the guardrails.
+3. **Per-phase evals.** Extend `evals/` (today: guardrail trick prompts) with per-phase quality checks on research and copy.
 4. **More model backends.** Support more open-weight backends (vLLM, llama.cpp) and record token-level cost per run.
-5. **Prompts as files.** Move agent prompts into `prompts/`, one file per agent, so the community can review and improve them.
+5. **Prompts as the source of truth.** Load agent prompts from `prompts/` at runtime instead of mirroring them, so the community can improve them without touching code.

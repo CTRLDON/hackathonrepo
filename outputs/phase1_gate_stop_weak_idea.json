@@ -1,14 +1,22 @@
 {
   "stage": "discover",
   "gate": "STOP",
+  "decision_text": "Stop \u2014 not feasible as currently described",
   "classification": "NOT FEASIBLE",
-  "rationale": "The venture idea is fundamentally unfeasible because lotteries are mathematically random games of chance, making a 99% accuracy prediction model scientifically impossible. Furthermore, marketing an infallible lottery predictor invites severe legal, regulatory, and ethical violations. The evidence provided discusses general software and sports predictions, which do not validate the core technical claim. Therefore, the project should be immediately terminated.",
+  "rationale": "The evidence strongly suggests that predicting lottery numbers with 99% accuracy is not feasible due to the nature of legitimate lotteries. The market for such a service is likely small and saturated, with high competition and low profit margins. The technical implementation of such a venture is also infeasible due to the limitations of AI in this domain.",
+  "rationale_label": "ASSUMPTION \u2014 the model's judgement over the sources below; no single source backs each sentence",
   "sources_used": [
+    "https://lottobaba.in/guides/can-ai-predict-lottery-numbers/",
+    "https://finance.yahoo.com/news/lotto-champ-software-reviews-urgent-170600251.html?fr=sycsrp_catchall",
     "https://www.trueigtech.com/lottery-prediction-software/",
-    "https://leans.ai/",
-    "https://aipredict.io/",
-    "https://dataintelo.com/report/global-lottery-software-market",
-    "https://lottobaba.in/guides/can-ai-predict-lottery-numbers/"
+    "https://www.cftc.gov/media/10626/TAC_AIReport050224/download",
+    "https://explodingtopics.com/blog/ai-statistics",
+    "https://wsc-sports.com/blog/industry-insights/ai-sports-predictions-for-2026-why-traditional-methods-are-now-obsolete/",
+    "https://www.legal500.com/intelligence/united-states/employment-and-hr/new-regulations-restricting-ai-use-in-employment-decisions",
+    "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/available-today-openais-gpt-6-1-sol-and-claude-sonnet-5-5-in-microsoft-copilot/4560801",
+    "https://www.ibm.com/think/security",
+    "https://creati.ai/ai-tools/lotto-chart/"
   ],
-  "assumptions_labelled": "findings without source_url stored as type=assumption"
+  "assumptions_labelled": "findings without a source URL are stored as type=assumption",
+  "approved_by": null
 }

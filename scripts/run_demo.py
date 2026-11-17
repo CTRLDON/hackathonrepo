@@ -1,17 +1,18 @@
 """End-to-end demo. Fails fast — hard timeout per stage."""
 from __future__ import annotations
-import json, signal, sys, time, traceback
+import json, os, shutil, signal, sys, time, traceback
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from backend.orchestrator import Orchestrator
 from memory import database
 from scripts.export_decision_log import export
+from services.sources import specific
 
 OUT = ROOT / "outputs"
 OUT.mkdir(exist_ok=True)
 
-STAGE_TIMEOUT = 90
+STAGE_TIMEOUT = int(os.getenv("DEMO_STAGE_TIMEOUT", "300"))
 STAGES = ["discover", "validate", "build", "commercial", "launch", "operate"]
 WEAK = "An AI that predicts lottery numbers with 99% accuracy."
 # Digital products only — physical goods, finance/crypto and health/legal advice are excluded.
@@ -60,7 +61,11 @@ def run_stage_timed(orch, vid, stage):
 
 def dump(stage, result, phase, suffix=""):
     """Write phase<N>_step1_<stage><suffix>.json and phase<N>_gate_<outcome><suffix>.json."""
-    save(f"phase{phase}_step1_{stage}{suffix}.json", {"stage": stage, "result": result})
+    save(f"phase{phase}_step1_{stage}{suffix}.json", {
+        "stage": stage,
+        "labels": ("Feasibility scores, reasons and rationale are ASSUMPTION: the model's judgement over the "
+                   "sources it cites. Research findings carry their own source URL or type=assumption."),
+        "result": result})
     if result.get("_timeout") or result.get("_error"):
         gate = "TIMEOUT" if result.get("_timeout") else "ERROR"
         save(f"phase{phase}_gate_{gate.lower()}{suffix}.json", {
@@ -78,7 +83,8 @@ def dump(stage, result, phase, suffix=""):
         "decision_text": report.get("decision_text"),
         "classification": feas.get("classification"),
         "rationale": feas.get("rationale") or report.get("summary"),
-        "sources_used": feas.get("sources_used") or [],
+        "rationale_label": "ASSUMPTION — the model's judgement over the sources below; no single source backs each sentence",
+        "sources_used": specific(feas.get("sources_used") or []),
         "assumptions_labelled": "findings without a source URL are stored as type=assumption",
         "approved_by": None,
     })
@@ -87,7 +93,8 @@ def dump(stage, result, phase, suffix=""):
 
 def approve(orch, vid, aid):
     try:
-        orch.approve_and_advance(vid, aid)
+        # Scripted run: logged as the scripted founder, not as a live founder click.
+        orch.resolve_gate(vid, aid, "continue", actor="founder (scripted demo run)")
         say(f"  [gate] approved {aid[:8]}...")
     except Exception as e:
         say(f"  [gate] approve failed: {e}")
@@ -100,6 +107,25 @@ def run_weak(orch):
     result = run_stage_timed(orch, v["id"], "discover")
     gate = dump("discover", result, 1, "_weak_idea")
     say(f"  [gate] {gate}")
+
+
+# Per-venture artifacts copied into outputs/ under phase/step names (text formats only).
+ARTIFACT_COPIES = [
+    ("validation/validation_plan.md", "phase2_step2_validation_plan.md"),
+    ("mvp/index.html", "phase3_step2_prototype.html"),
+    ("commercial/policies.md", "phase4_step2_policy_drafts.md"),
+    ("launch/store_page.html", "phase5_step2_store_page.html"),
+    ("final/venture_report.html", "phase6_step2_venture_report.html"),
+    ("final/trust_report.md", "phase6_step3_trust_report.md"),
+]
+
+
+def copy_artifacts(vid):
+    for rel, name in ARTIFACT_COPIES:
+        src = OUT / vid / rel
+        if src.is_file():
+            shutil.copyfile(src, OUT / name)
+            say(f"  [out] {name}")
 
 
 def run_strong(orch):
@@ -115,6 +141,7 @@ def run_strong(orch):
         aid = result.get("approval_id")
         if aid:
             approve(orch, v["id"], aid)
+    copy_artifacts(v["id"])
 
 
 def main():

@@ -16,8 +16,8 @@ See `.env.example` for the full list of settings. The default configuration uses
 
 | Phase | Step | Status |
 |---|---|---|
-| Founder intake | Clarifying interview (one question at a time), required fields, business brief drafting | Working |
-| Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests refused before any model call (`services/guardrails.py`) | Working |
+| Founder intake | Clarifying interview (one question at a time); brief covers skills, budget, education, target market, available time and values; business brief drafting | Working |
+| Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests, including reworded variants, refused before any model call (`services/guardrails.py`, 53 cases in `evals/trick_prompts.json`) | Working |
 | 1. Discover | Parallel sourced web research on competitors, pain points, market size, barriers | Working |
 | 1. Discover | Five-dimension feasibility verdict | Working |
 | 1. Discover | 12-aspect business map and mind map | Working |
@@ -37,38 +37,43 @@ See `.env.example` for the full list of settings. The default configuration uses
 | 5. Launch | Launch copy, tagline, claim-to-evidence mapping | Working |
 | 5. Launch | Store-page publishing (never published) | MOCKED |
 | 5. Launch | Sale to cash: `payments.py`, `delivery.py`, `refunds.py`, `reconcile.py` (no real or sandbox payments) | MOCKED |
+| 5. Launch | Output guardrail: income promises, fake urgency and fake social proof in launch copy are blocked and fail the gate | Working |
 | 5. Launch | Gate: no unsupported claims → GO | Working |
 | 6. Operate & Learn | 90-day operating plan: KPIs, roadmap, risks | Working |
 | 6. Operate & Learn | Comparable historical-case research | Working |
 | 6. Operate & Learn | Persevere-or-pivot memo and full venture report | Working |
 | Cross-cutting | Gate outcomes chosen by the founder: continue / repeat / pivot back / stop | Working |
 | Cross-cutting | Founder approval enforced in code before advancing, publishing, sending or spending | Working |
-| Cross-cutting | `decision_log.json` recording every agent action | Working |
+| Cross-cutting | Every agent action (six phases, founder interview, Ask AI, research, gates, founder choices, refusals) logged; `make export` writes `decision_log.json` | Working |
 | Cross-cutting | Evidence ledger with source URLs and `ASSUMPTION` labels | Working |
 | Cross-cutting | Cost per run shown in the UI | Working |
+| Cross-cutting | Trust Center: live red-team of the guardrails (`evals/trick_prompts.json`), try-a-trick-prompt box, honesty scorecard computed from the venture's records | Working |
+| Cross-cutting | Agent prompts mirrored one file per agent in `prompts/` (`scripts/export_prompts.py`) | Working |
 | Cross-cutting | Progress mind-map UI | Working |
 
-The demo run's outputs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention, including a STOP gate decision for a deliberately weak idea. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`. The same demo run is recorded in `decision_log.json` at the repository root.
+Results from real pipeline runs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention. The current demo run (open-weight `qwen2.5-coder:7b`, recorded in `decision_log.json`) shows a deliberately weak idea getting a STOP gate decision, plus a trust report computed from that run. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`; `outputs/README.md` says which run produced each file. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`.
 
 ## Architecture
 
-A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval_manager.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called, and the Trust Center attacks it live with our own trick prompts. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Models and free resources
 
-**Default — local open-weight model via Ollama.** `MODEL_PROVIDER=ollama` (default) and `OLLAMA_MODEL=qwen3:8b` (or `llama3.2:3b`, `gpt-oss:20b`) in `.env`. Ollama runs on the host or as a service in `docker-compose.yml`; pull the model once with `ollama pull qwen3:8b`. No API key, no network beyond the local Ollama daemon, no cost.
+**Open-weight model, run locally with Ollama: `qwen2.5-coder:7b`.** `docker compose up` starts an Ollama service and pulls `qwen2.5-coder:7b` automatically on first run (about 4.7 GB, one time). No API key, no account, no paid service.
 
-**Optional — Gemini free tier.** `MODEL_PROVIDER=gemini` and `GEMINI_API_KEY=<key>` in `.env`, using `gemini-2.5-flash` on the free quota via `google-genai`. Optional; the full pipeline runs on the local model.
+**Without Docker:** install [Ollama](https://ollama.com), run `ollama pull qwen2.5-coder:7b`, copy `.env.example` to `.env` (it already sets `MODEL_PROVIDER=ollama` and `OLLAMA_MODEL=qwen2.5-coder:7b`), then `pip install -r requirements.txt` and `python main.py`.
 
-**Web research** uses the free `ddgs` library. **Everything else** is local Python. No paid service is required at any point.
+**Other free open-weight models** work by changing `OLLAMA_MODEL` to any model you have pulled, for example `qwen3:8b` or `gpt-oss:20b`. Larger models write better research summaries; the gates, guardrails and approvals are the same.
+
+**Web research** uses the free `ddgs` library. **Everything else** (gates, guardrails, approvals, decision log, mocked sale to cash) is plain local Python. No paid API is used or supported.
 
 ## Cost per run
 
-About **$0.00 per run** on the default local setup (roughly 40k tokens across a full six-phase run, all executed locally). The `cost` field is `0` for every entry in the committed `decision_log.json`. On the Gemini free tier, cost is also $0.00 within the free quota.
+About **$0.00 per run**: the model is open-weight and runs locally (`qwen2.5-coder:7b` via Ollama), web search is free, and no paid API is called. Every entry in the committed `decision_log.json` records `cost: 0`. The only cost is local compute and electricity.
 
 ## Demo video
 
-Link coming soon (≤ 3 minutes).
+[Watch the demo on Google Drive](https://drive.google.com/file/d/1orcVRXEDnPy76mHB6zmaysaQcB5cBtml/view?usp=drive_link) (3 minutes or less).
 
 ## What our system will NOT do
 

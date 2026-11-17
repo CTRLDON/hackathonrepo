@@ -534,17 +534,30 @@ async function showSummaryConfirm() {
     return `<li><span class="k">${lbl}</span><span class="v${cls}"${tip}>${v && v !== "Not specified" ? escapeHtml(v) : "not provided"}</span></li>`;
   }).join("");
 
+  const ans = summary.answers || {};
   card.innerHTML = `
     <h4>Confirm before drafting the plan</h4>
     <ul>
       <li><span class="k">Idea</span><span class="v">${escapeHtml(summary.idea)}</span></li>
       ${rows}
+      <li><span class="k">Available time</span><span class="v"><input class="brief-input" id="brief-time" placeholder="e.g. 10 hours a week for 3 months" value="${escapeHtml(ans.available_time || "")}" /></span></li>
+      <li><span class="k">Values</span><span class="v"><input class="brief-input" id="brief-values" placeholder="e.g. honest pricing, privacy first" value="${escapeHtml(ans.values || "")}" /></span></li>
     </ul>
     <div class="actions">
       <button class="primary" id="confirm-draft">Confirm — draft plan</button>
       <button class="ghost" id="edit-answers">Edit — add more</button>
     </div>`;
-  card.querySelector("#confirm-draft").onclick = () => draftBrief(card);
+  card.querySelector("#confirm-draft").onclick = async () => {
+    // Save the founder's available time and values into the brief before it is drafted.
+    for (const [field, id] of [["available_time", "#brief-time"], ["values", "#brief-values"]]) {
+      const value = card.querySelector(id).value.trim();
+      if (value) {
+        try { await api(`/api/ventures/${state.ventureId}/update-field`, { method: "POST", body: JSON.stringify({ field, value }) }); }
+        catch (e) { toastError(e.message); return; }
+      }
+    }
+    draftBrief(card);
+  };
   card.querySelector("#edit-answers").onclick = () => {
     card.remove(); state.readyForBrief = false;
     addChat("assistant", "Sure — add context, then I'll re-check when ready.");
@@ -635,6 +648,7 @@ function switchPanel(section) {
   panel.classList.add("entering");
   if (section === "mindmap") renderMindMap();
   if (section === "decisions") renderDecisions();
+  if (section === "trust") renderTrust();
   if (section === "ask") { const i = $("#ask-input"); if (i) i.focus(); }
 }
 
@@ -766,7 +780,8 @@ async function refresh() {
     const kc = document.createElement("div");
     kc.id = "knowledge-card";
     kc.className = "card knowledge-card";
-    const fields = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market" };
+    const fields = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market",
+                     available_time: "Available time", values: "Values" };
     const analyzed = state.analyzedCache || {};
     kc.innerHTML = `<h3>Knowledge provided</h3><ul class="knowledge-list">
       <li data-field="idea"><span class="k">Idea</span><span class="v">${escapeHtml(summary.idea)}</span><span></span><span></span></li>
@@ -817,7 +832,7 @@ async function refresh() {
           const r = await api("/api/approve", { method: "POST", body: JSON.stringify({ venture_id: state.ventureId, approval_id: a.id, choice: btn.dataset.choice }) });
           const msg = { continue: r.finished ? "Venture plan complete 🎉" : "Continuing — next: " + stageLabel(r.advanced_to),
                         repeat: "Phase reopened — run it again when ready", pivot: "Pivoted back to " + stageLabel(r.advanced_to),
-                        stop: "Venture stopped. Nothing further will run." }[r.choice];
+                        stop: "Venture stopped. Nothing runs unless you start a phase again." }[r.choice];
           toastOk(msg + (r.override ? " (override recorded)" : "")); await refresh();
         } catch (e) { toastError(e.message); }
       });
@@ -871,7 +886,8 @@ async function refresh() {
 function beginEditField(card, field) {
   const li = card.querySelector(`li[data-field="${field}"]`);
   if (!li) return;
-  const labels = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market" };
+  const labels = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market",
+                   available_time: "Available time", values: "Values" };
   const currentText = li.querySelector(".v").textContent.trim();
   const current = currentText === "Not provided" ? "" : currentText;
   li.innerHTML = `
@@ -1090,8 +1106,50 @@ $$(".sidebar nav a").forEach((a) => a.addEventListener("click", async () => {
   panel.classList.add("entering");
   if (a.dataset.section === "mindmap") await renderMindMap();
   if (a.dataset.section === "decisions") await renderDecisions();
+  if (a.dataset.section === "trust") await renderTrust();
   if (a.dataset.section === "ask") { const i = $("#ask-input"); if (i) i.focus(); }
 }));
+
+async function renderTrust() {
+  const sc = $("#trust-scorecard"), rt = $("#trust-redteam");
+  if (!sc || !rt) return;
+  sc.innerHTML = rt.innerHTML = "<div class='muted'>Checking…</div>";
+  try {
+    const [card, red] = await Promise.all([api(`/api/ventures/${state.ventureId}/trust`), api("/api/trust/red-team")]);
+    sc.innerHTML = `<h3 style="margin-top:0">Honesty scorecard <span class="trust-score">${card.passed}/${card.total} rules verified</span></h3>
+      <ul class="trust-list">${card.checks.map((c) => `<li class="${c.ok ? "ok" : "warn"}"><span class="mark">${c.ok ? "✓" : "!"}</span>
+        <div><strong>${escapeHtml(c.rule)}</strong><div class="muted">${escapeHtml(c.detail)}</div></div></li>`).join("")}</ul>
+      <h4 style="margin:14px 0 6px">Mocks and stubs</h4>
+      <ul class="trust-list">${card.mocks.map((m) => `<li><span class="mock-tag">${escapeHtml(m.status)}</span>
+        <div><strong>${escapeHtml(m.part)}</strong><div class="muted">${escapeHtml(m.note)}</div></div></li>`).join("")}</ul>`;
+    rt.innerHTML = `<h3 style="margin-top:0">Red-team self-test <span class="trust-score">${red.passed}/${red.total} passed</span></h3>
+      <p class="muted" style="margin:0 0 10px">Every trick prompt in <code>evals/trick_prompts.json</code>, run against the guardrails right now.</p>
+      <div class="trust-table">${red.results.map((r) => `<div class="row ${r.passed ? "ok" : "warn"}">
+        <span class="mark">${r.passed ? "✓" : "✗"}</span><span class="exp">${r.expect === "refuse" ? "Refused" : "Allowed"}</span>
+        <span class="prompt">${escapeHtml(r.prompt)}</span><span class="rule">${escapeHtml(r.rule || "honest request")}</span></div>`).join("")}</div>`;
+  } catch (e) { sc.innerHTML = `<div style="color:#fca5a5">Failed: ${escapeHtml(e.message)}</div>`; rt.innerHTML = ""; }
+  const btn = $("#trust-try-btn"), inp = $("#trust-try-input"), out = $("#trust-try-result");
+  const go = async () => {
+    const prompt = inp.value.trim();
+    if (!prompt) return;
+    try {
+      const r = await api("/api/trust/try", { method: "POST", body: JSON.stringify({ prompt }) });
+      out.innerHTML = `<div class="trust-verdict ${r.refused ? "refused" : "allowed"}"><strong>${r.refused ? "Refused" : "Allowed"}</strong>
+        ${r.rule ? `<span class="rule">${escapeHtml(r.rule)}</span>` : ""}<div>${escapeHtml(r.message)}</div></div>`;
+    } catch (e) { toastError(e.message); }
+  };
+  btn.onclick = go;
+  inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
+  const pub = $("#trust-publish-btn"), pubOut = $("#trust-publish-result");
+  if (pub) pub.onclick = async () => {
+    try {
+      const r = await api(`/api/ventures/${state.ventureId}/publish-store-page`, { method: "POST" });
+      pubOut.innerHTML = `<div class="trust-verdict allowed"><strong>MOCKED publish recorded</strong><div>${escapeHtml(r.message)}</div></div>`;
+    } catch (e) {
+      pubOut.innerHTML = `<div class="trust-verdict refused"><strong>Blocked</strong><div>${escapeHtml(e.message)}</div></div>`;
+    }
+  };
+}
 
 async function renderDecisions() {
   const box = document.getElementById("decisions-list");

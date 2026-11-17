@@ -6,12 +6,12 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend import approval_manager, mindmap
+from backend import approval as approval_manager, mindmap
 from backend.orchestrator import ARTIFACTS, Orchestrator, recover_interrupted_stages
 from agents.founder_agent import REQUIRED_FIELDS, normalize_state
 from config import FRONTEND_DIR, OUTPUTS_DIR, STAGE_LABELS, STAGES, THEME_BY_CATEGORY
 from memory import database
-from services import decision_log, evidence_ledger, guardrails
+from services import decision_log, evidence_ledger, guardrails, trust
 from tools.ollama_client import OllamaError, get_client
 
 app = FastAPI(title="VentureOS", version="1.0.0")
@@ -175,6 +175,7 @@ async def generate_mindmap(vid: str):
         raise HTTPException(409, "Run the Discover stage first — the business map is built from its research.")
     try:
         await asyncio.to_thread(orchestrator.build_business_map, vid)
+        _log_agent_call(vid, "business_map", "Regenerate business map")
         return mindmap.build(vid)
     except Exception as e:
         raise HTTPException(502, str(e))
@@ -220,6 +221,7 @@ def analyze_summary(vid: str):
         analyzed = orchestrator.founder.analyze_answers(answers)
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(vid, "founder_understanding", "Analyse interview answers", ", ".join(sorted(answers)))
     _analyze_cache[cache_key] = analyzed
     return {"raw": answers, "analyzed": analyzed}
 
@@ -241,7 +243,15 @@ def ask(vid: str, body: AskRequest):
         answer = orchestrator.founder.answer_question(v, body.question.strip(), history)
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(vid, "founder_understanding", "Answer founder question (Ask AI)", body.question.strip()[:200])
     return {"answer": answer}
+
+
+def _log_agent_call(vid, agent, action, detail=""):
+    """Every model call made outside the six phases (interview, brief, Ask AI, research) is logged too."""
+    v = database.get_venture(vid) or {}
+    decision_log.log(vid, stage=v.get("current_stage") or "discover", agent=agent, action=action,
+                     decision="DONE", rationale=str(detail)[:400])
 
 
 def _log_refusal(vid, v, refusal):
@@ -256,7 +266,9 @@ def update_field(vid: str, body: UpdateFieldRequest):
     if not v:
         raise HTTPException(404, "venture not found")
     field = body.field.strip()
-    if field not in ("budget", "skills", "education", "target_market"):
+    # Founder brief fields the founder can set or correct directly (the problem statement's brief:
+    # skills, budget, available time, target market and values).
+    if field not in ("budget", "skills", "education", "target_market", "available_time", "values"):
         raise HTTPException(400, f"invalid field: {field}")
     brief = v.get("brief") or {}
     overrides = brief.get("field_overrides") or {}
@@ -291,6 +303,8 @@ def founder_next(body: FounderView):
             new_message=None if is_initial else body.message)
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(body.venture_id, "founder_understanding", "Founder interview question",
+                    res.get("question") or "Interview complete — ready for the brief")
     database.update_venture(body.venture_id, discovery=res.pop("state"))
     if res["question"]:
         database.add_message(body.venture_id, "assistant", res["question"])
@@ -319,6 +333,7 @@ def founder_brief(body: FounderView):
         brief = orchestrator.founder.draft_brief(v["idea"], history, _collect_answers(v["id"]))
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(body.venture_id, "founder_understanding", "Draft business brief", brief.get("name", ""))
     theme = _save_brief(body.venture_id, v, brief)
     return {"brief": brief, "theme": theme}
 
@@ -333,6 +348,7 @@ def redraft_brief(vid: str):
         brief = orchestrator.founder.draft_brief(v["idea"], history, _collect_answers(v["id"]))
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(vid, "founder_understanding", "Re-draft business brief", brief.get("name", ""))
     theme = _save_brief(vid, v, brief)
     return {"brief": brief, "theme": theme}
 
@@ -373,6 +389,31 @@ def reject(body: ApproveRequest):
         return orchestrator.reject(body.venture_id, body.approval_id)
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+class TryPrompt(BaseModel):
+    prompt: str
+
+
+@app.get("/api/trust/red-team")
+def trust_red_team():
+    """Attack our own guardrails with every trick prompt in evals/trick_prompts.json."""
+    return trust.red_team()
+
+
+@app.post("/api/trust/try")
+def trust_try(body: TryPrompt):
+    """Let anyone type a trick prompt and see whether (and why) it is refused — no model is called."""
+    if not body.prompt.strip():
+        raise HTTPException(400, "prompt required")
+    return trust.classify(body.prompt[:2000])
+
+
+@app.get("/api/ventures/{vid}/trust")
+def venture_trust(vid: str):
+    if not database.get_venture(vid):
+        raise HTTPException(404, "venture not found")
+    return trust.scorecard(vid)
 
 
 @app.post("/api/ventures/{vid}/demand-test")
@@ -418,10 +459,12 @@ async def research(body: NewResearch):
         _log_refusal(body.venture_id, v, refusal)
         raise HTTPException(422, refusal["message"])
     try:
-        return await asyncio.to_thread(orchestrator.research.run,
-                                       {"venture": v, "question": body.question, "stage": v["current_stage"]})
+        res = await asyncio.to_thread(orchestrator.research.run,
+                                      {"venture": v, "question": body.question, "stage": v["current_stage"]})
     except Exception as e:
         raise HTTPException(502, str(e))
+    _log_agent_call(body.venture_id, "research", f"Web research: {body.question[:80]}")
+    return res
 
 
 @app.middleware("http")
