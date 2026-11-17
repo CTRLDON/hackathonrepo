@@ -46,13 +46,16 @@ See `.env.example` for the full list of settings. The default configuration uses
 | Cross-cutting | `decision_log.json` recording every agent action | Working |
 | Cross-cutting | Evidence ledger with source URLs and `ASSUMPTION` labels | Working |
 | Cross-cutting | Cost per run shown in the UI | Working |
+| Cross-cutting | Trust Center: live red-team of the guardrails (`evals/trick_prompts.json`), try-a-trick-prompt box, honesty scorecard computed from the venture's records | Working |
+| 5. Launch | Output guardrail: income promises, fake urgency and fake social proof in launch copy are blocked and fail the gate | Working |
+| Cross-cutting | Agent prompts mirrored one file per agent in `prompts/` (`scripts/export_prompts.py`) | Working |
 | Cross-cutting | Progress mind-map UI | Working |
 
 The demo run's outputs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention, including a STOP gate decision for a deliberately weak idea. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`. The same demo run is recorded in `decision_log.json` at the repository root.
 
 ## Architecture
 
-A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval_manager.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called, and the Trust Center attacks it live with our own trick prompts. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Models and free resources
 
