@@ -17,6 +17,7 @@ Run the smoke tests with `make setup` once, then `make test` (no model needed). 
 | Phase | Step | Status |
 |---|---|---|
 | Founder intake | Clarifying interview (one question at a time); brief covers skills, budget, education, target market, available time and values; business brief drafting | Working |
+| Founder intake | Founder Fit verdict (build it yourself / partner up / narrow the MVP / don't start yet) from this founder's own budget, time, skills and values; quotes their answers, estimates labelled ASSUMPTION (`services/founder_fit.py`) | Working |
 | Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests, including reworded variants, refused before any model call (`services/guardrails.py`, 53 cases in `evals/trick_prompts.json`) | Working |
 | 1. Discover | Parallel sourced web research on competitors, pain points, market size, barriers | Working |
 | 1. Discover | Five-dimension feasibility verdict | Working |

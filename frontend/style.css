@@ -565,3 +565,9 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 
 .summary-card .brief-input { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 7px 10px; font: inherit; font-size: 13px; }
+
+/* ── Founder fit ─────────────────────────────────────────────────────── */
+.fit-verdict { padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 800;
+  background: rgba(16,185,129,.18); color: #34d399; }
+.fit-verdict.fit-partner, .fit-verdict.fit-narrow, .fit-verdict.fit-unknown { background: rgba(251,191,36,.18); color: #fcd34d; }
+.fit-verdict.fit-stop { background: rgba(239,68,68,.18); color: #fca5a5; }
