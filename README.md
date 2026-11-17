@@ -59,15 +59,17 @@ A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) tha
 
 ## Models and free resources
 
-**Default — local open-weight model via Ollama.** `MODEL_PROVIDER=ollama` (default) and `OLLAMA_MODEL=qwen3:8b` (or `llama3.2:3b`, `gpt-oss:20b`) in `.env`. Ollama runs on the host or as a service in `docker-compose.yml`; pull the model once with `ollama pull qwen3:8b`. No API key, no network beyond the local Ollama daemon, no cost.
+**Open-weight model, run locally with Ollama: `qwen2.5-coder:7b`.** `docker compose up` starts an Ollama service and pulls `qwen2.5-coder:7b` automatically on first run (about 4.7 GB, one time). No API key, no account, no paid service.
 
-**Optional — Gemini free tier.** `MODEL_PROVIDER=gemini` and `GEMINI_API_KEY=<key>` in `.env`, using `gemini-2.5-flash` on the free quota via `google-genai`. Optional; the full pipeline runs on the local model.
+**Without Docker:** install [Ollama](https://ollama.com), run `ollama pull qwen2.5-coder:7b`, copy `.env.example` to `.env` (it already sets `MODEL_PROVIDER=ollama` and `OLLAMA_MODEL=qwen2.5-coder:7b`), then `pip install -r requirements.txt` and `python main.py`.
 
-**Web research** uses the free `ddgs` library. **Everything else** is local Python. No paid service is required at any point.
+**Other free open-weight models** work by changing `OLLAMA_MODEL` to any model you have pulled, for example `qwen3:8b` or `gpt-oss:20b`. Larger models write better research summaries; the gates, guardrails and approvals are the same.
+
+**Web research** uses the free `ddgs` library. **Everything else** (gates, guardrails, approvals, decision log, mocked sale to cash) is plain local Python. No paid API is used or supported.
 
 ## Cost per run
 
-About **$0.00 per run** on the default local setup (roughly 40k tokens across a full six-phase run, all executed locally). The `cost` field is `0` for every entry in the committed `decision_log.json`. On the Gemini free tier, cost is also $0.00 within the free quota.
+About **$0.00 per run**: the model is open-weight and runs locally (`qwen2.5-coder:7b` via Ollama), web search is free, and no paid API is called. Every entry in the committed `decision_log.json` records `cost: 0`. The only cost is local compute and electricity.
 
 ## Demo video
 
