@@ -1139,6 +1139,15 @@ async function renderTrust() {
   };
   btn.onclick = go;
   inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
+  const pub = $("#trust-publish-btn"), pubOut = $("#trust-publish-result");
+  if (pub) pub.onclick = async () => {
+    try {
+      const r = await api(`/api/ventures/${state.ventureId}/publish-store-page`, { method: "POST" });
+      pubOut.innerHTML = `<div class="trust-verdict allowed"><strong>MOCKED publish recorded</strong><div>${escapeHtml(r.message)}</div></div>`;
+    } catch (e) {
+      pubOut.innerHTML = `<div class="trust-verdict refused"><strong>Blocked</strong><div>${escapeHtml(e.message)}</div></div>`;
+    }
+  };
 }
 
 async function renderDecisions() {
