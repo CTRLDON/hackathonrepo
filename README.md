@@ -23,7 +23,7 @@ Run the smoke tests with `make setup` once, then `make test` (no model needed). 
 | 1. Discover | 12-aspect business map and mind map | Working |
 | 1. Discover | Gate: GO / REPEAT / PIVOT / STOP verdict | Working |
 | 2. Validate | Riskiest assumptions checked against web evidence; Lean Canvas via the business map | Working |
-| 2. Validate | Lean experiments and Mom Test customer-interview script (`validation_plan.md`) | Working |
+| 2. Validate | Lean experiments and Mom Test customer-interview script (written to `outputs/<venture_id>/validation/validation_plan.md`, downloadable from the Validate report) | Working |
 | 2. Validate | Landing-page demand test with waitlist (no page deployed; founder enters real counts against a pre-set target) | MOCKED |
 | 2. Validate | Pre-registered kill criterion: the founder locks the demand target (e.g. 100 sign-ups in 14 days) before any results; once real results are recorded the target can't be moved | Working |
 | 2. Validate | Gate: contradicted ≥ half → PIVOT; none contradicted and ≥ 1 supported → GO; else REPEAT | Working |
