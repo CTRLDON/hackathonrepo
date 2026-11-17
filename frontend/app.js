@@ -199,6 +199,23 @@ const MOCK_NOTES = {
   launch: "MOCKED: store page, delivery and payments — nothing is published, sent or charged.",
 };
 
+async function renderFounderFit() {
+  let box = document.getElementById("founder-fit");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "founder-fit";
+    box.className = "card founder-fit";
+    $("#pending-approvals").insertAdjacentElement("beforebegin", box);
+  }
+  try {
+    const f = await api(`/api/ventures/${state.ventureId}/founder-fit`);
+    box.innerHTML = `<h3 style="margin-top:0">Founder fit: <span class="fit-verdict fit-${escapeHtml(f.verdict)}">${escapeHtml(f.label)}</span></h3>
+      ${f.reasons.length ? `<div class="muted" style="margin:-4px 0 8px">Why: ${escapeHtml(f.reasons.join("; "))}</div>` : ""}
+      <ul class="trust-list">${f.insights.map((i) => `<li><span class="mark">→</span><div>${escapeHtml(i)}</div></li>`).join("")}</ul>
+      <div class="muted" style="font-size:12px;margin-top:6px">${escapeHtml(f.note)}</div>`;
+  } catch { box.remove(); }
+}
+
 function renderCost(data) {
   let el = document.getElementById("cost-per-run");
   if (!el) {
@@ -864,6 +881,7 @@ async function refresh() {
 
   renderDemandTest(data, currentStage);
   renderCost(data);
+  renderFounderFit();
 
   // Stages panel
   const cards = $("#stage-cards");

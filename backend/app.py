@@ -12,7 +12,7 @@ from backend.orchestrator import ARTIFACTS, Orchestrator, recover_interrupted_st
 from agents.founder_agent import REQUIRED_FIELDS, normalize_state
 from config import FRONTEND_DIR, OUTPUTS_DIR, STAGE_LABELS, STAGES, THEME_BY_CATEGORY
 from memory import database
-from services import decision_log, evidence_ledger, guardrails, trust
+from services import decision_log, evidence_ledger, founder_fit, guardrails, trust
 from tools.ollama_client import OllamaError, get_client
 
 @asynccontextmanager
@@ -422,6 +422,15 @@ def trust_try(body: TryPrompt):
     if not body.prompt.strip():
         raise HTTPException(400, "prompt required")
     return trust.classify(body.prompt[:2000])
+
+
+@app.get("/api/ventures/{vid}/founder-fit")
+def venture_founder_fit(vid: str):
+    """Founder-specific verdict from the founder's own budget, time, skills and values (no model)."""
+    v = database.get_venture(vid)
+    if not v:
+        raise HTTPException(404, "venture not found")
+    return founder_fit.assess(v, _collect_answers(vid))
 
 
 @app.get("/api/ventures/{vid}/trust")
