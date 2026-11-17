@@ -44,7 +44,7 @@ See `.env.example` for the full list of settings. The default configuration uses
 | 6. Operate & Learn | Persevere-or-pivot memo and full venture report | Working |
 | Cross-cutting | Gate outcomes chosen by the founder: continue / repeat / pivot back / stop | Working |
 | Cross-cutting | Founder approval enforced in code before advancing, publishing, sending or spending | Working |
-| Cross-cutting | `decision_log.json` recording every agent action | Working |
+| Cross-cutting | Every agent action (six phases, founder interview, Ask AI, research, gates, founder choices, refusals) logged; `make export` writes `decision_log.json` | Working |
 | Cross-cutting | Evidence ledger with source URLs and `ASSUMPTION` labels | Working |
 | Cross-cutting | Cost per run shown in the UI | Working |
 | Cross-cutting | Trust Center: live red-team of the guardrails (`evals/trick_prompts.json`), try-a-trick-prompt box, honesty scorecard computed from the venture's records | Working |
@@ -73,7 +73,7 @@ About **$0.00 per run**: the model is open-weight and runs locally (`qwen2.5-cod
 
 ## Demo video
 
-Link coming soon (≤ 3 minutes).
+[Watch the demo on Google Drive](https://drive.google.com/file/d/1orcVRXEDnPy76mHB6zmaysaQcB5cBtml/view?usp=drive_link) (3 minutes or less).
 
 ## What our system will NOT do
 
