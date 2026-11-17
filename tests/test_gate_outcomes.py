@@ -78,3 +78,13 @@ def test_demand_test_records_real_numbers():
     r = client.post(f"/api/ventures/{vid}/demand-test", json={"signups": 12}).json()
     assert r["outcome"] == "STOP" and r["reported_by"] == "founder"
     assert client.post(f"/api/ventures/{vid}/demand-test", json={"signups": -5}).status_code == 400
+
+
+def test_pre_registered_target_is_used_and_then_locked():
+    vid, _ = _venture_at("validate", "GO")
+    assert client.post(f"/api/ventures/{vid}/demand-target", json={"signups": 50, "days": 10}).status_code == 200
+    r = client.post(f"/api/ventures/{vid}/demand-test", json={"signups": 30}).json()
+    assert r["target"] == 50 and r["days"] == 10 and r["outcome"] == "REPEAT" and r["target_set_by"] == "founder"
+    # No moving the goalposts after seeing the data.
+    assert client.post(f"/api/ventures/{vid}/demand-target", json={"signups": 25, "days": 10}).status_code == 409
+    assert client.post(f"/api/ventures/{vid}/demand-target", json={"signups": 0, "days": 10}).status_code == 400

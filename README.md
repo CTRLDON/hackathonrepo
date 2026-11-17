@@ -25,6 +25,7 @@ See `.env.example` for the full list of settings. The default configuration uses
 | 2. Validate | Riskiest assumptions checked against web evidence; Lean Canvas via the business map | Working |
 | 2. Validate | Lean experiments and Mom Test customer-interview script (`validation_plan.md`) | Working |
 | 2. Validate | Landing-page demand test with waitlist (no page deployed; founder enters real counts against a pre-set target) | MOCKED |
+| 2. Validate | Pre-registered kill criterion: the founder locks the demand target (e.g. 100 sign-ups in 14 days) before any results; once real results are recorded the target can't be moved | Working |
 | 2. Validate | Gate: contradicted ≥ half → PIVOT; none contradicted and ≥ 1 supported → GO; else REPEAT | Working |
 | 3. Build | MVP feature specification | Working |
 | 3. Build | Clickable prototype written to `outputs/<venture_id>/mvp/` | Working |

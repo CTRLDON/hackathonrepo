@@ -535,7 +535,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .mock-tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 10px;
   font-weight: 800; letter-spacing: .06em; vertical-align: middle; background: rgba(251,191,36,.18); color: #fcd34d; }
 .cost-line { font-size: 12px; margin: -6px 0 12px; }
-#demand-test input { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border);
+#demand-test input, #demand-test #target-signups, #demand-test #target-days { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 9px 12px; font: inherit; }
 
 /* ── Trust Center ────────────────────────────────────────────────────── */

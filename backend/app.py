@@ -58,6 +58,11 @@ class ApproveRequest(BaseModel):
 class DemandTestRequest(BaseModel):
     signups: int
 
+
+class DemandTargetRequest(BaseModel):
+    signups: int
+    days: int
+
 class ThemePayload(BaseModel):
     theme: dict
 
@@ -414,6 +419,19 @@ def venture_trust(vid: str):
     if not database.get_venture(vid):
         raise HTTPException(404, "venture not found")
     return trust.scorecard(vid)
+
+
+@app.post("/api/ventures/{vid}/demand-target")
+def demand_target(vid: str, body: DemandTargetRequest):
+    """Pre-register the demand-test kill criterion; locked once real results exist."""
+    if body.signups < 1 or body.days < 1:
+        raise HTTPException(400, "target sign-ups and days must be at least 1")
+    try:
+        return orchestrator.set_demand_target(vid, body.signups, body.days)
+    except PermissionError as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @app.post("/api/ventures/{vid}/demand-test")

@@ -528,13 +528,34 @@ class Orchestrator:
                          model="rule-based")
         return result
 
+    def set_demand_target(self, vid, signups, days):
+        """Pre-register the kill criterion BEFORE any result exists. Once real results are recorded the
+        target is locked: nobody (founder included) can move the goalposts after seeing the data."""
+        v = database.get_venture(vid)
+        if not v:
+            raise ValueError("unknown venture")
+        brief = v.get("brief") or {}
+        if brief.get("demand_test"):
+            raise PermissionError("The target is locked: real results were already recorded against it. "
+                                  "Moving the goalposts after seeing the data is not allowed.")
+        brief["demand_target"] = {"signups": int(signups), "days": int(days), "set_at": utcnow(),
+                                  "set_by": "founder"}
+        database.update_venture(vid, brief=brief)
+        decision_log.log(vid, stage="validate", agent="founder", action="Pre-registered demand target",
+                         decision="DONE", rationale=f"{int(signups)} waitlist sign-ups in {int(days)} days, "
+                         "set before any results", approval_status="approved", model="rule-based")
+        return brief["demand_target"]
+
     def record_demand_test(self, vid, signups):
         """MOCKED landing page, REAL numbers: score founder-reported sign-ups against the pre-set target."""
         v = database.get_venture(vid)
         if not v:
             raise ValueError("unknown venture")
-        res = gates.waitlist_gate(signups)
         brief = v.get("brief") or {}
+        target = brief.get("demand_target") or {"signups": gates.WAITLIST_TARGET["signups"],
+                                                "days": gates.WAITLIST_TARGET["days"], "set_by": "default"}
+        res = gates.waitlist_gate(signups, target["signups"], target["days"])
+        res["target_set_by"] = target.get("set_by", "default")
         brief["demand_test"] = {**res, "recorded_at": utcnow(), "reported_by": "founder",
                                 "landing_page": "MOCKED — no page deployed"}
         database.update_venture(vid, brief=brief)

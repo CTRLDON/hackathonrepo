@@ -223,15 +223,32 @@ function renderDemandTest(data, currentStage) {
     $("#pending-approvals").insertAdjacentElement("afterend", box);
   }
   const t = (data.venture.brief || {}).demand_test;
+  const tgt = (data.venture.brief || {}).demand_target || { signups: 100, days: 14, set_by: "default" };
   box.innerHTML = `
     <h3 style="margin-top:0">Landing-page demand test <span class="mock-tag">MOCKED</span></h3>
-    <p class="muted" style="line-height:1.55;margin:0 0 10px">No page is deployed. The target was set before the test:
-      <strong>100 waitlist sign-ups in 14 days</strong>. Enter the real number you got — VentureOS never generates sign-ups.</p>
+    <p class="muted" style="line-height:1.55;margin:0 0 10px">No page is deployed. Kill criterion, set <em>before</em> the test:
+      <strong>${tgt.signups} waitlist sign-ups in ${tgt.days} days</strong>${tgt.set_by === "founder" ? " (pre-registered by you)" : " (default)"}.
+      Enter the real number you got — VentureOS never generates sign-ups.</p>
+    ${t ? `<div class="muted" style="font-size:12px;margin-bottom:8px">🔒 Target locked: results were recorded against it, so it can't be moved.</div>`
+        : `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <input id="target-signups" type="number" min="1" value="${tgt.signups}" style="width:110px" title="Target sign-ups" />
+      <span class="muted">sign-ups in</span>
+      <input id="target-days" type="number" min="1" value="${tgt.days}" style="width:80px" title="Days" />
+      <span class="muted">days</span>
+      <button class="ghost" id="target-save">Lock in target</button></div>`}
     ${t ? `<div style="margin-bottom:10px">${decisionBadge(t.outcome)} <span class="muted">${escapeHtml(t.rationale)}</span></div>` : ""}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input id="signups-input" type="number" min="0" step="1" placeholder="Real sign-ups" style="width:160px" />
       <button class="primary" id="signups-save">Score against target</button>
     </div>`;
+  const ts = box.querySelector("#target-save");
+  if (ts) ts.onclick = async () => {
+    const signups = parseInt(box.querySelector("#target-signups").value, 10), days = parseInt(box.querySelector("#target-days").value, 10);
+    try {
+      await api(`/api/ventures/${state.ventureId}/demand-target`, { method: "POST", body: JSON.stringify({ signups, days }) });
+      toastOk(`Target pre-registered: ${signups} sign-ups in ${days} days`); await refresh();
+    } catch (e) { toastError(e.message); }
+  };
   box.querySelector("#signups-save").onclick = async () => {
     const n = parseInt(box.querySelector("#signups-input").value, 10);
     if (!Number.isFinite(n) || n < 0) { toastError("Enter the real number of sign-ups (0 or more)."); return; }
