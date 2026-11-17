@@ -55,7 +55,7 @@ def test_interview_never_repeats_and_registers_context(client):
     v = client.post("/api/ventures", json={"idea": idea}).json()
     res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": idea}).json()
     asked = []
-    replies = ["Students miss deadlines", "AI scheduling", "5000 USD", "I code in Python", "BSc Computer Science"]
+    replies = ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "I code in Python", "BSc Computer Science"]
     for reply in replies:
         assert not res["ready_for_brief"], res
         asked.append(res["question"])
@@ -93,3 +93,56 @@ def test_business_map_only_after_discover_and_has_12_aspects(client):
     assert by_label["Risks & Regulation"]["status"] == "partial"     # invalid status normalised
     # brief re-draft must not wipe the map
     assert database.get_venture(v["id"])["brief"]["business_map"]["aspects"]
+
+
+def test_edits_after_summary_update_the_answers(client, monkeypatch):
+    """'Edit — add more' after the summary card: a correction must replace the old answer."""
+    from backend import app as app_mod
+    stub = app_mod.orchestrator.founder.client
+    orig = stub.chat_json
+
+    def chat_json(messages, **kw):
+        payload = json.loads(messages[-1]["content"])
+        latest = payload.get("latest_founder_message") or ""
+        if "topics" in payload and "Actually" in latest:
+            return {t: ("20,000 USD" if t == "budget" else None) for t in payload["topics"]}
+        return orig(messages, **kw)
+    monkeypatch.setattr(stub, "chat_json", chat_json)
+
+    idea = "A study planner app for university students"
+    v = client.post("/api/ventures", json={"idea": idea}).json()
+    res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": idea}).json()
+    for reply in ["Students miss deadlines", "AI scheduling built from your syllabus", "5000 USD", "I code in Python", "BSc Computer Science"]:
+        res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": reply}).json()
+    assert res["ready_for_brief"]
+    assert client.get(f"/api/ventures/{v['id']}/summary").json()["answers"]["budget"] == "5000 USD"
+
+    res = client.post("/api/founder/next-question",
+                      json={"venture_id": v["id"], "message": "Actually my budget is 20k dollars"}).json()
+    assert res["ready_for_brief"]
+    answers = client.get(f"/api/ventures/{v['id']}/summary").json()["answers"]
+    assert answers["budget"] == "20,000 USD"
+    assert answers["education"] == "BSc Computer Science"  # untouched topics keep their answers
+
+
+
+def test_vague_answers_get_one_follow_up(client):
+    """One-word / incomplete answers are followed up once, then accepted (no endless loop)."""
+    idea = "A study planner app for university students"
+    v = client.post("/api/ventures", json={"idea": idea}).json()
+    res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": idea}).json()
+    topics = []
+    replies = ["practice", "still practice",                     # problem: vague twice -> accepted after 2 asks
+               "AI scheduling built from your syllabus",
+               "10,000", "10,000 USD",                           # budget: no currency -> one follow-up
+               "I code in Python",
+               "comp eng", "bachelor in computer engineering"]  # education: no level -> one follow-up
+    for reply in replies:
+        assert not res["ready_for_brief"], (topics, res)
+        topics.append(client.get(f"/api/ventures/{v['id']}").json()["venture"]["discovery"]["pending"])
+        res = client.post("/api/founder/next-question", json={"venture_id": v["id"], "message": reply}).json()
+    assert res["ready_for_brief"], res
+    assert topics == ["problem", "problem", "differentiation", "budget", "budget", "skills",
+                      "education", "education"], topics
+    answers = client.get(f"/api/ventures/{v['id']}/summary").json()["answers"]
+    assert "10,000 USD" in answers["budget"] and "bachelor" in answers["education"]

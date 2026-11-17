@@ -497,7 +497,8 @@ async function askNext(message) {
       method: "POST", body: JSON.stringify({ venture_id: state.ventureId, message }) });
     hideTyping();
     if (res.question) addChat("assistant", res.question);
-    if (res.ready_for_brief && !state.readyForBrief) {
+    if (res.ready_for_brief) {
+      // Always re-render: the founder may have just corrected an answer while the card was open.
       state.readyForBrief = true;
       await showSummaryConfirm();
     }

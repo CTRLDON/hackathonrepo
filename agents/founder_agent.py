@@ -11,36 +11,43 @@ mentioned, so we never re-ask something they told us.
 """
 from __future__ import annotations
 import json
+import re
 from agents.base import BaseAgent
 
 # Ordered: clarification first, then the founder-profile details.
 TOPICS = {
     "problem": {
+        "complete_when": "names who has the problem AND what goes wrong for them (not just a single word)",
         "label": "Problem",
         "about": "the specific problem or pain point this solves, and why it matters",
         "fallback": "What specific problem does this solve, and why does it matter to the people who have it?",
     },
     "differentiation": {
+        "complete_when": "says concretely how it differs from what people use today",
         "label": "Unique angle",
         "about": "what makes this different from existing alternatives — their unique angle or unfair advantage",
         "fallback": "What makes this different from what already exists? What's your unique angle?",
     },
     "target_market": {
+        "complete_when": "names a specific group of people or businesses",
         "label": "Target market",
         "about": "who specifically their first customers or audience are",
         "fallback": "Who specifically is your first target customer or audience?",
     },
     "budget": {
+        "complete_when": "gives an amount (a number or clear range) with a currency, or clearly says there is no budget",
         "label": "Budget",
         "about": "how much money they can realistically spend to get started",
         "fallback": "What budget can you realistically spend to get this off the ground?",
     },
     "skills": {
+        "complete_when": "names at least one concrete skill or area of experience",
         "label": "Skills",
         "about": "the practical skills and hands-on experience they personally bring",
         "fallback": "What skills or hands-on experience do you personally bring to this venture?",
     },
     "education": {
+        "complete_when": "gives the level (e.g. high school, bachelor, master, self-taught) and the field",
         "label": "Education",
         "about": "their formal education or training (degree, field, institution, or self-taught)",
         "fallback": "What's your education — degree, field of study, or are you self-taught?",
@@ -48,11 +55,11 @@ TOPICS = {
 }
 REQUIRED_FIELDS = ["budget", "skills", "education", "target_market"]
 MAX_QUESTIONS = 10
-MAX_ASKS_PER_TOPIC = 2  # re-ask once if the reply was empty/unclear, never more
+MAX_ASKS_PER_TOPIC = 2  # one follow-up if the reply was vague/incomplete, never more
 
 
 def empty_state():
-    return {"answers": {}, "asked": {}, "pending": None}
+    return {"answers": {}, "asked": {}, "pending": None, "vague": []}
 
 
 def normalize_state(state):
@@ -62,6 +69,7 @@ def normalize_state(state):
                         if k in TOPICS and isinstance(v, str) and v.strip()}
         s["asked"] = {k: int(v) for k, v in (state.get("asked") or {}).items() if k in TOPICS}
         s["pending"] = state.get("pending") if state.get("pending") in TOPICS else None
+        s["vague"] = [t for t in (state.get("vague") or []) if t in TOPICS]
     return s
 
 
@@ -71,6 +79,25 @@ def _transcript(idea, history):
         role = "Founder" if m.get("role") == "user" else "Interviewer"
         lines.append(f"{role}: {m.get('content', '')}")
     return "\n".join(lines)
+
+
+_CURRENCY = re.compile(r"(\$|€|£|\b(usd|eur|gbp|egp|aed|sar|kwd|dollars?|euros?|pounds?|dinars?|riyals?|dirhams?)\b)", re.I)
+_NO_BUDGET = re.compile(r"\b(no budget|no money|nothing|zero|bootstrap\w*|self[- ]fund\w*)\b", re.I)
+_EDU_LEVEL = re.compile(r"\b(high ?school|secondary|diploma|bachelor\w*|b\.?sc|b\.?eng|b\.?a|undergrad\w*|"
+                        r"master\w*|m\.?sc|mba|ph\.?d|doctor\w*|degree|self[- ]?taught|bootcamp|"
+                        r"student|freshman|sophomore|junior|senior|graduat\w*|\d(st|nd|rd|th) year|year \d)\b", re.I)
+
+
+def _rule_vague(topic, text):
+    """Deterministic completeness checks for topics with clear rules (backs up the LLM's judgement)."""
+    t = (text or "").strip()
+    if topic in ("problem", "differentiation"):
+        return len(t.split()) < 3
+    if topic == "budget":
+        return not _NO_BUDGET.search(t) and not (re.search(r"\d", t) and _CURRENCY.search(t))
+    if topic == "education":
+        return not _EDU_LEVEL.search(t)
+    return False
 
 
 def _is_substantive(text):
@@ -98,24 +125,36 @@ class FounderAgent(BaseAgent):
 
         # 1) Attribute the reply to the topic we actually asked about.
         pending = state["pending"]
-        if pending and new_message is not None and _is_substantive(new_message):
+        latest = new_message.strip() if new_message is not None and _is_substantive(new_message) else None
+        if pending and latest:
             prev = answers.get(pending)
-            answers[pending] = f"{prev}\n{new_message.strip()}" if prev else new_message.strip()
+            answers[pending] = f"{prev}\n{latest}" if prev else latest
         state["pending"] = None
 
-        # 2) Register context: pull any other topics the founder already covered.
+        # 2) Register context: fill topics the founder already covered anywhere, and apply
+        #    changes/corrections in the latest message to topics we already have
+        #    (e.g. "Edit — add more" after the summary: "actually my budget is 20k").
         missing = [t for t in TOPICS if t not in answers]
-        if missing and (history or idea):
+        if (missing or latest) and (history or idea):
             try:
-                extracted = self._extract(idea, history, missing)
-                for t, val in extracted.items():
-                    answers.setdefault(t, val)
+                updates, vague = self._extract(idea, history, answers, latest)
+                state["vague"] = vague
+                for t, val in updates.items():
+                    if t == pending and latest:
+                        continue  # just answered directly — keep the founder's own words
+                    if t in answers and not latest:
+                        continue  # known answers only change when the founder says something new
+                    answers[t] = val
             except Exception:
-                pass  # interview continues on direct answers alone
+                state["vague"] = []  # can't judge quality — don't block the interview
+        state["vague"] = [t for t in TOPICS if t in answers
+                          and (t in state["vague"] or _rule_vague(t, answers[t]))]
 
         missing = [t for t in TOPICS if t not in answers]
         total_asked = sum(state["asked"].values())
-        askable = [t for t in missing if state["asked"].get(t, 0) < MAX_ASKS_PER_TOPIC]
+        # Missing topics, plus answered-but-incomplete ones that still have a follow-up left.
+        askable = [t for t in TOPICS if (t in missing or t in state["vague"])
+                   and state["asked"].get(t, 0) < MAX_ASKS_PER_TOPIC]
 
         base = {"missing_fields": [f for f in REQUIRED_FIELDS if f not in answers],
                 "answered_fields": sorted(answers)}
@@ -133,17 +172,27 @@ class FounderAgent(BaseAgent):
         phase = "clarify" if target in ("problem", "differentiation") else "details"
         return {**base, "question": question, "ready_for_brief": False, "phase": phase, "state": state}
 
-    def _extract(self, idea, history, topics):
-        """Return {topic: text} for topics the founder has *explicitly* covered."""
-        wanted = {t: TOPICS[t]["about"] for t in topics}
-        schema = "{" + ", ".join(f'"{t}": "string or null"' for t in topics) + "}"
+    def _extract(self, idea, history, answers, latest=None):
+        """Return {topic: text} for topics to fill (newly stated) or update (changed in `latest`)."""
+        topics = list(TOPICS)
+        schema = ("{" + ", ".join(f'"{t}": "string or null"' for t in topics)
+                  + ', "too_vague": ["topic key"]}')
         result = self._chat_json({
             "transcript": _transcript(idea, history),
-            "topics": wanted,
+            "topics": {t: TOPICS[t]["about"] for t in topics},
+            "known_answers": {t: answers[t] for t in topics if t in answers},
+            "latest_founder_message": latest,
+            "complete_when": {t: TOPICS[t]["complete_when"] for t in topics},
             "instruction": (
-                "For each topic, if the FOUNDER (not the interviewer) has already stated it anywhere "
-                "in the transcript, return a short faithful summary in their words. "
-                "If they have not clearly stated it, return null. Do NOT guess or infer."
+                "Return a value or null for every topic. Only use what the FOUNDER (not the interviewer) said; "
+                "never guess or infer.\n"
+                "- Topic NOT in known_answers: if the founder stated it anywhere in the transcript, return a "
+                "short faithful summary in their words; otherwise null.\n"
+                "- Topic IN known_answers: return null UNLESS latest_founder_message changes, corrects or adds "
+                "to it. In that case return the complete updated answer (the new information wins over the "
+                "old; keep old details that weren't contradicted).\n"
+                "- too_vague: list every topic whose answer (known or newly returned) does NOT meet its "
+                "`complete_when` rule. One-word or hedged answers usually don't."
             ),
         }, schema_hint=schema)
         out = {}
@@ -151,11 +200,20 @@ class FounderAgent(BaseAgent):
             val = result.get(t)
             if isinstance(val, str) and val.strip() and val.strip().lower() not in ("null", "none", "unknown", "not mentioned", "not specified"):
                 out[t] = val.strip()
-        return out
+        vague = [t for t in (result.get("too_vague") or []) if t in TOPICS]
+        return out, vague
 
     def _compose_question(self, topic, idea, history, answers):
         recent = history[-6:]
+        follow_up = {}
+        if topic in answers:  # answered but incomplete
+            follow_up = {"founder_said_so_far": answers[topic],
+                         "still_missing": TOPICS[topic]["complete_when"],
+                         "follow_up": ("Their answer on this topic is incomplete. Ask ONE friendly, specific "
+                                       "follow-up that gets exactly what is still missing, referencing what "
+                                       "they said. Don't repeat the original question.")}
         result = self._chat_json({
+            **follow_up,
             "venture_idea": idea,
             "what_we_already_know": {TOPICS[k]["label"]: v for k, v in answers.items()},
             "recent_conversation": [{"role": m.get("role"), "content": m.get("content", "")} for m in recent],
