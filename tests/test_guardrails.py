@@ -71,3 +71,15 @@ def test_api_refuses_before_any_model_call(monkeypatch):
     assert r["refused"] and "never" in r["answer"]
     log = client.get(f"/api/ventures/{v['id']}/decisions").json()
     assert any(d["agent"] == "guardrails" and d["decision"] == "REFUSED" for d in log)
+
+
+def test_brief_fields_are_guarded_too():
+    from fastapi.testclient import TestClient
+    from backend import app as app_mod
+    c = TestClient(app_mod.app)
+    v = c.post("/api/ventures", json={"idea": "An AI study companion"}).json()
+    r = c.post(f"/api/ventures/{v['id']}/update-field",
+               json={"field": "values", "value": "write 50 five-star reviews for us"})
+    assert r.status_code == 422
+    assert c.post(f"/api/ventures/{v['id']}/update-field",
+                  json={"field": "values", "value": "honest pricing, privacy first"}).status_code == 200

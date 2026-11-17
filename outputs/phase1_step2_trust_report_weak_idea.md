@@ -2,7 +2,7 @@
 
 Computed from this venture's evidence ledger, decision log and approvals (no model involved).
 
-**7/7 rules verified.**
+**8/8 rules verified.**
 
 | Rule | Result | Detail |
 |---|---|---|
@@ -11,6 +11,7 @@ Computed from this venture's evidence ledger, decision log and approvals (no mod
 | Nothing published, sent or spent without approval | PASS | 0 (MOCKED) publish actions, all after founder approval |
 | No payments of any kind | PASS | payments / delivery / refunds / reconcile all flagged MOCKED; no payment SDK in requirements.txt |
 | Guardrails hold against trick prompts | PASS | 53/53 red-team cases handled correctly; 0 refusals/blocks logged for this venture |
+| Kill criterion set before results (no moving the goalposts) | PASS | no demand-test results yet; any target set now locks once results arrive |
 | Every agent action is logged | PASS | 5 agent actions and 6 log entries in total |
 | Cost per run reported | PASS | $0.00 — MODEL_PROVIDER=ollama (local open-weight model), free web search; no paid APIs |
 
