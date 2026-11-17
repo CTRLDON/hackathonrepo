@@ -20,3 +20,6 @@ data/ventureos.db
 gemini_client.py
 tools/gemini_client.py
 *gemini*.pyc
+
+# Per-venture run artifacts (generated code, prototypes); only the named demo outputs are committed
+outputs/*/

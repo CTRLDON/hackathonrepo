@@ -11,7 +11,9 @@ FEATURES = [{"name": "Upload Notes", "purpose": "add notes", "acceptance": "note
 GOOD_HTML = ("<!DOCTYPE html><html><head><title>StudyBuddy</title></head><body>"
              + "".join(f'<section data-feature="f{i + 1}"><h2>{f["name"]}</h2><button>Go</button></section>'
                        for i, f in enumerate(FEATURES))
-             + "<script>" + "const notes=[];function addNote(t){notes.push(t);localStorage.setItem('n',JSON.stringify(notes));}\n" * 20
+             + "<script>const notes=[];\n"
+             + "".join(f"function addNote{i}(t){{notes.push(t);localStorage.setItem('n',JSON.stringify(notes));}}\n"
+                       for i in range(20))
              + "</script></body></html>")
 
 

@@ -14,9 +14,10 @@ OUT.mkdir(exist_ok=True)
 STAGE_TIMEOUT = 90
 STAGES = ["discover", "validate", "build", "commercial", "launch", "operate"]
 WEAK = "An AI that predicts lottery numbers with 99% accuracy."
-STRONG = ("A sustainability-focused reusable packaging service for cafes in Cairo. "
-          "Cafes pay a monthly subscription; customers return containers to any "
-          "cafe in the network. I have 2 weeks and can code in Python.")
+# Digital products only — physical goods, finance/crypto and health/legal advice are excluded.
+STRONG = ("A web app that turns a freelance designer's discovery call notes into a structured "
+          "project brief and quote. Target market: freelance designers in Egypt. "
+          "I can code in Python, have a $300 budget and 10 hours a week; I value honest pricing.")
 
 
 class _Timeout(Exception):
@@ -57,31 +58,29 @@ def run_stage_timed(orch, vid, stage):
         signal.alarm(0)
 
 
-def dump(stage, result, tag):
-    save(f"{tag}_step1_result.json", {"stage": stage, "result": result})
-    if result.get("_timeout"):
-        save(f"{tag}_gate_decision.json", {
-            "stage": stage, "gate": "TIMEOUT",
-            "reason": f"stage exceeded {STAGE_TIMEOUT}s — likely slow model or network",
-            "sources_used": [], "labelled": "ASSUMPTION",
+def dump(stage, result, phase, suffix=""):
+    """Write phase<N>_step1_<stage><suffix>.json and phase<N>_gate_<outcome><suffix>.json."""
+    save(f"phase{phase}_step1_{stage}{suffix}.json", {"stage": stage, "result": result})
+    if result.get("_timeout") or result.get("_error"):
+        gate = "TIMEOUT" if result.get("_timeout") else "ERROR"
+        save(f"phase{phase}_gate_{gate.lower()}{suffix}.json", {
+            "stage": stage, "gate": gate,
+            "reason": result.get("_error") or f"stage exceeded {STAGE_TIMEOUT}s — likely slow model or network",
+            "sources_used": [],
         })
-        return "TIMEOUT"
-    if result.get("_error"):
-        save(f"{tag}_gate_decision.json", {
-            "stage": stage, "gate": "ERROR", "reason": result["_error"],
-            "sources_used": [], "labelled": "ASSUMPTION",
-        })
-        return "ERROR"
+        return gate
     feas = result.get("feasibility") or {}
-    fb = result.get("feedback") or {}
-    gate = feas.get("gate_recommendation") or fb.get("gate") or "N/A"
-    save(f"{tag}_gate_decision.json", {
+    report = result.get("report") or {}
+    gate = feas.get("gate_recommendation") or report.get("decision") or "N/A"
+    save(f"phase{phase}_gate_{gate.lower()}{suffix}.json", {
         "stage": stage,
         "gate": gate,
+        "decision_text": report.get("decision_text"),
         "classification": feas.get("classification"),
-        "rationale": feas.get("rationale") or fb.get("note"),
+        "rationale": feas.get("rationale") or report.get("summary"),
         "sources_used": feas.get("sources_used") or [],
-        "assumptions_labelled": "findings without source_url stored as type=assumption",
+        "assumptions_labelled": "findings without a source URL are stored as type=assumption",
+        "approved_by": None,
     })
     return gate
 
@@ -99,17 +98,17 @@ def run_weak(orch):
     v = database.create_venture(name="Lottery", idea=WEAK)
     database.add_message(v["id"], "user", WEAK)
     result = run_stage_timed(orch, v["id"], "discover")
-    gate = dump("discover", result, "weak_phase1")
+    gate = dump("discover", result, 1, "_weak_idea")
     say(f"  [gate] {gate}")
 
 
 def run_strong(orch):
     say("\n=== Strong idea (full pipeline) ===")
-    v = database.create_venture(name="Reusable packaging", idea=STRONG)
+    v = database.create_venture(name="BriefBuilder", idea=STRONG)
     database.add_message(v["id"], "user", STRONG)
     for i, stage in enumerate(STAGES, 1):
         result = run_stage_timed(orch, v["id"], stage)
-        gate = dump(stage, result, f"phase{i}")
+        gate = dump(stage, result, i)
         if result.get("_timeout") or result.get("_error"):
             say(f"  [{stage}] bailing out — remaining stages skipped")
             break

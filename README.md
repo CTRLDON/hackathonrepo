@@ -16,40 +16,43 @@ See `.env.example` for the full list of settings. The default configuration uses
 
 | Phase | Step | Status |
 |---|---|---|
-| Founder intake | Clarifying questions, required fields, business brief drafting | Working |
-| 1. Discover | Parallel web research on competitors, pain points, market size, barriers | Working |
-| 1. Discover | Five-dimension feasibility scoring | Working |
-| 1. Discover | Customer interviews (Mom Test) — founder answers via chat | Working |
+| Founder intake | Clarifying interview (one question at a time), required fields, business brief drafting | Working |
+| Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests refused before any model call (`services/guardrails.py`) | Working |
+| 1. Discover | Parallel sourced web research on competitors, pain points, market size, barriers | Working |
+| 1. Discover | Five-dimension feasibility verdict | Working |
+| 1. Discover | 12-aspect business map and mind map | Working |
 | 1. Discover | Gate: GO / REPEAT / PIVOT / STOP verdict | Working |
-| 2. Validate | Lean-experiment design (hypothesis, method, success, failure, cost) | Working |
-| 2. Validate | Landing-page demand test with waitlist | MOCKED — no real page is deployed |
-| 2. Validate | Gate: ≥ 2 experiments designed → GO | Working |
+| 2. Validate | Riskiest assumptions checked against web evidence; Lean Canvas via the business map | Working |
+| 2. Validate | Lean experiments and Mom Test customer-interview script (`validation_plan.md`) | Working |
+| 2. Validate | Landing-page demand test with waitlist (no page deployed; founder enters real counts against a pre-set target) | MOCKED |
+| 2. Validate | Gate: contradicted ≥ half → PIVOT; none contradicted and ≥ 1 supported → GO; else REPEAT | Working |
 | 3. Build | MVP feature specification | Working |
-| 3. Build | Application scaffold (writes files to `outputs/<venture_id>/mvp/`) | Working |
-| 3. Build | Smoke test generation and execution | Working |
-| 3. Build | Gate: ≥ 3 features AND smoke tests pass → GO | Working |
+| 3. Build | Clickable prototype written to `outputs/<venture_id>/mvp/` | Working |
+| 3. Build | Automated prototype checks (HTML, features, no network calls, JS syntax) | Working |
+| 3. Build | Gate: ≥ 3 features AND all checks pass → GO | Working |
 | 4. Commercial setup | Pricing strategy | Working |
-| 4. Commercial setup | Unit economics (gross margin, contribution, break-even) | Working |
-| 4. Commercial setup | Legal policy drafts (terms, privacy, refunds) | MOCKED — not generated |
+| 4. Commercial setup | Unit economics (gross margin, break-even) | Working |
+| 4. Commercial setup | Legal policy drafts (terms, privacy, refunds), template only, not legal advice | STUBBED |
 | 4. Commercial setup | Gate: gross margin > 20% → GO | Working |
-| 5. Launch | Marketing copy, tagline, claim-to-evidence mapping | Working |
-| 5. Launch | Store-page publishing | MOCKED — not published |
-| 5. Launch | Product delivery to buyers | MOCKED — no real delivery |
-| 5. Launch | Payment processing | MOCKED — no real or sandbox payments, per rules |
+| 5. Launch | Launch copy, tagline, claim-to-evidence mapping | Working |
+| 5. Launch | Store-page publishing (never published) | MOCKED |
+| 5. Launch | Sale to cash: `payments.py`, `delivery.py`, `refunds.py`, `reconcile.py` (no real or sandbox payments) | MOCKED |
 | 5. Launch | Gate: no unsupported claims → GO | Working |
-| 6. Operate & Learn | Metrics analysis | Working |
+| 6. Operate & Learn | 90-day operating plan: KPIs, roadmap, risks | Working |
 | 6. Operate & Learn | Comparable historical-case research | Working |
-| 6. Operate & Learn | Persevere-or-pivot memo | Working |
-| Cross-cutting | Founder approve/reject at every gate (enforced in code) | Working |
+| 6. Operate & Learn | Persevere-or-pivot memo and full venture report | Working |
+| Cross-cutting | Gate outcomes chosen by the founder: continue / repeat / pivot back / stop | Working |
+| Cross-cutting | Founder approval enforced in code before advancing, publishing, sending or spending | Working |
 | Cross-cutting | `decision_log.json` recording every agent action | Working |
 | Cross-cutting | Evidence ledger with source URLs and `ASSUMPTION` labels | Working |
+| Cross-cutting | Cost per run shown in the UI | Working |
 | Cross-cutting | Progress mind-map UI | Working |
 
-The demo run's outputs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`. The same demo run is recorded in `decision_log.json` at the repository root.
+The demo run's outputs are committed in `outputs/` and follow the `phase<N>_step<M>_<name>` / `phase<N>_gate_<name>` convention, including a STOP gate decision for a deliberately weak idea. The mocked sale-to-cash test run is in `outputs/payment_test_log.md`. Every market claim in `outputs/` cites a source URL or is labelled `ASSUMPTION`. The same demo run is recorded in `decision_log.json` at the repository root.
 
 ## Architecture
 
-The system is a single FastAPI process wrapping an `Orchestrator` that runs six sequential phases. Each phase drives specialised agents under `agents/`, accumulates checkpoints and evidence, then pauses at a gate. Gates are explicit records in an approvals table; the pipeline will not advance until the founder presses Approve in the UI, enforced by `backend/approval_manager.py`. Every action an agent takes is appended to the decision log with its sources, the model name, its cost, and the approver. The founder agent's clarification flow precedes the pipeline so that ideas start from a brief (skills, budget, education, target market, values) rather than a one-liner. Full diagrams and phase-by-phase detail are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval_manager.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Models and free resources
 
@@ -63,6 +66,10 @@ The system is a single FastAPI process wrapping an `Orchestrator` that runs six 
 
 About **$0.00 per run** on the default local setup (roughly 40k tokens across a full six-phase run, all executed locally). The `cost` field is `0` for every entry in the committed `decision_log.json`. On the Gemini free tier, cost is also $0.00 within the free quota.
 
+## Demo video
+
+Link coming soon (≤ 3 minutes).
+
 ## What our system will NOT do
 
 - Promise income, revenue, or success of any kind. A weak idea receives a STOP recommendation instead of an optimistic spin.
@@ -72,12 +79,13 @@ About **$0.00 per run** on the default local setup (roughly 40k tokens across a 
 - Publish, send, spend, or sign anything without an explicit founder approve step, enforced in code.
 - Advance past a gate without a recorded founder approval.
 - Hide core features behind a paywall.
+- Work on excluded product types: physical goods; financial, investment or crypto products; health or legal advice products. These ideas are refused at intake.
 
 ## How the project stays alive after the hackathon
 
 **Maintainers.** The initial team commits to triaging and merging pull requests for at least six months after the event, and to keeping `docker compose up` working on Windows, macOS, and Linux.
 
-**Roadmap** (also in `ARCHITECTURE.md#roadmap`). Pluggable model backends (OpenAI-compatible, Anthropic, local vLLM), real payment-provider adapters behind a new `payments.py` interface once a concrete provider is chosen, a richer `outputs/` schema, and a per-phase evaluation harness under `evals/`.
+**Roadmap** (also in `ARCHITECTURE.md#roadmap`). More open-weight model backends (vLLM, llama.cpp), real payment-provider adapters behind the existing mocked `payments.py` / `delivery.py` / `refunds.py` / `reconcile.py` interfaces once a concrete provider is chosen (still founder-approved), a deployed landing page feeding the waitlist gate, and a per-phase evaluation harness under `evals/`.
 
 **Community.** Issues labelled `good-first-issue` and `phase-N` for new agent roles. The pipeline shape — six phases, gates, approval-before-action — is stable and documented in `ARCHITECTURE.md`; new agents drop in without touching the orchestrator.
 

@@ -11,7 +11,7 @@ from backend.orchestrator import ARTIFACTS, Orchestrator, recover_interrupted_st
 from agents.founder_agent import REQUIRED_FIELDS, normalize_state
 from config import FRONTEND_DIR, OUTPUTS_DIR, STAGE_LABELS, STAGES, THEME_BY_CATEGORY
 from memory import database
-from services import decision_log, evidence_ledger
+from services import decision_log, evidence_ledger, guardrails
 from tools.ollama_client import OllamaError, get_client
 
 app = FastAPI(title="VentureOS", version="1.0.0")
@@ -97,6 +97,9 @@ def list_ventures():
 def create_venture(body: NewVenture):
     if not body.idea.strip():
         raise HTTPException(400, "idea required")
+    refusal = guardrails.check_idea(body.idea)
+    if refusal:  # rule-based, before any model call: excluded products and must-never requests
+        raise HTTPException(422, refusal["message"])
     v = database.create_venture(name="Untitled", idea=body.idea.strip())
     database.add_message(v["id"], "user", body.idea.strip())
     return v
@@ -221,6 +224,10 @@ def ask(vid: str, body: AskRequest):
         raise HTTPException(404, "venture not found")
     if not body.question.strip():
         raise HTTPException(400, "question required")
+    refusal = guardrails.check_request(body.question)
+    if refusal:
+        _log_refusal(vid, v, refusal)
+        return {"answer": refusal["message"], "refused": True, "rule": refusal["rule"]}
     try:
         # No client-side history (e.g. a `?` question mid-interview) → use the stored conversation.
         history = body.history or database.get_messages(vid)
@@ -228,6 +235,12 @@ def ask(vid: str, body: AskRequest):
     except Exception as e:
         raise HTTPException(502, str(e))
     return {"answer": answer}
+
+
+def _log_refusal(vid, v, refusal):
+    decision_log.log(vid, stage=v.get("current_stage") or "discover", agent="guardrails",
+                     action=f"Refused request ({refusal['rule']})", decision="REFUSED",
+                     rationale=refusal["message"], model="rule-based")
 
 
 @app.post("/api/ventures/{vid}/update-field")
@@ -259,6 +272,12 @@ def founder_next(body: FounderView):
     if not is_initial:
         database.add_message(body.venture_id, "user", body.message)
         history = database.get_messages(body.venture_id)
+        refusal = guardrails.check_request(body.message)
+        if refusal:
+            _log_refusal(body.venture_id, v, refusal)
+            database.add_message(body.venture_id, "assistant", refusal["message"])
+            return {"question": refusal["message"], "ready_for_brief": False, "phase": "refused",
+                    "refused": True, "rule": refusal["rule"]}
     try:
         res = orchestrator.founder.next_question(
             v["idea"], history, v.get("discovery"),
@@ -360,6 +379,10 @@ async def research(body: NewResearch):
     v = database.get_venture(body.venture_id)
     if not v:
         raise HTTPException(404, "venture not found")
+    refusal = guardrails.check_request(body.question)
+    if refusal:
+        _log_refusal(body.venture_id, v, refusal)
+        raise HTTPException(422, refusal["message"])
     try:
         return await asyncio.to_thread(orchestrator.research.run,
                                        {"venture": v, "question": body.question, "stage": v["current_stage"]})
