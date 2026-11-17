@@ -63,6 +63,39 @@ Results from real pipeline runs are committed in `outputs/` and follow the `phas
 
 A single FastAPI process wraps an `Orchestrator` (`backend/orchestrator.py`) that runs six sequential phases, each driving specialised agents under `agents/` and recording sourced evidence. Every phase ends at a gate: thresholds live in `backend/gates.py`, and the founder resolves each gate in the UI (continue, repeat, pivot back or stop), enforced by `backend/approval.py`. A deterministic guardrail layer (`services/guardrails.py`) refuses excluded products and must-never requests before any model is called, and the Trust Center attacks it live with our own trick prompts. Every agent action is appended to the decision log with its sources, model, cost and approver. The mocked sale-to-cash flow (payment, delivery, refund, reconciliation) is described with diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+```mermaid
+flowchart LR
+    F(["Founder brief: idea, skills, budget, time, market, values"]) --> UI["Web UI (frontend/)"]
+    UI --> API["FastAPI (backend/app.py)"]
+    API --> GR{{"Guardrails (services/guardrails.py)"}}
+    GR -- "excluded product or trick prompt" --> X(["Refused and logged"])
+    GR -- allowed --> O["Orchestrator (backend/orchestrator.py)"]
+    O --> P1["1 Discover"] --> G1{"Gate"}
+    G1 -- go --> P2["2 Validate + kill criterion"] --> G2{"Gate"}
+    G2 -- go --> P3["3 Build"] --> G3{"Gate"}
+    G3 -- go --> P4["4 Commercial setup"] --> G4{"Gate"}
+    G4 -- go --> P5["5 Launch + MOCKED sale to cash"] --> G5{"Gate"}
+    G5 -- go --> P6["6 Operate and learn"]
+    G1 & G2 & G3 & G4 & G5 -. "repeat / pivot back / STOP" .-> FD(("Founder decides"))
+    FD -. "approve in UI (backend/approval.py)" .-> O
+    O --> DL[("Decision log + evidence ledger")]
+    DL --> TC["Trust Center + Founder Fit"]
+    DL --> J["decision_log.json + outputs/"]
+```
+
+Click any part to open its code (on GitHub you can also zoom and pan the diagram):
+[Guardrails](services/guardrails.py) ·
+[Orchestrator](backend/orchestrator.py) ·
+[Gates](backend/gates.py) ·
+[Founder approval](backend/approval.py) ·
+[Agents](agents/) ·
+[Sale to cash (MOCKED)](services/payments.py) ·
+[Trust Center](services/trust.py) ·
+[Founder Fit](services/founder_fit.py) ·
+[Decision log export](scripts/export_decision_log.py) ·
+[Trick-prompt evals](evals/trick_prompts.json) ·
+[Full architecture](ARCHITECTURE.md)
+
 ## Models and free resources
 
 **Open-weight model, run locally with Ollama: `qwen2.5-coder:7b`.** `docker compose up` starts an Ollama service and pulls `qwen2.5-coder:7b` automatically on first run (about 4.7 GB, one time). No API key, no account, no paid service.
