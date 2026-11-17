@@ -36,7 +36,8 @@ def export(path="decision_log.json"):
             "agent": d.get("agent"),
             "action": d.get("action"),
             "sources": sources,
-            "model": d.get("model") or model,
+            # Rule-based steps (gates, guardrails, founder choices) use no model → null.
+            "model": None if d.get("model") == "rule-based" else (d.get("model") or model),
             "cost": 0,
             "approved_by": "founder" if d.get("approval_status") == "approved" else None,
         })

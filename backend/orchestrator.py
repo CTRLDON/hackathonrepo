@@ -18,7 +18,7 @@ from agents.research_agent import ResearchAgent
 from agents.strategy_agent import StrategyAgent
 from agents.testing_agent import TestingAgent
 from agents.validation_agent import ValidationAgent
-from backend import approval_manager
+from backend import approval_manager, gates
 from backend.state_manager import StateManager
 from config import OUTPUTS_DIR, STAGES
 from memory import database
@@ -32,6 +32,28 @@ ARTIFACTS = {
     "validation-plan": "validation/validation_plan.md",
     "report": "final/venture_report.html",
 }
+
+
+LEAN_CANVAS = [("Problem", "problem"), ("Customer segments", "customers"),
+               ("Unique value proposition", "value_proposition"), ("Solution", "solution"),
+               ("Channels", "channels"), ("Revenue streams", "revenue"), ("Cost structure", "costs"),
+               ("Key metrics", None), ("Unfair advantage", "competition")]
+
+
+def lean_canvas(v):
+    """Lean Canvas blocks filled from the Discover business map; unknowns are labelled ASSUMPTION."""
+    aspects = {a.get("key"): a for a in ((v.get("brief") or {}).get("business_map") or {}).get("aspects", [])}
+    out = []
+    for label, key in LEAN_CANVAS:
+        a = aspects.get(key) if key else None
+        if a and a.get("status") != "gap":
+            out.append(f"{label}: {a.get('summary', '')}"
+                       + (" (ASSUMPTION — not yet backed by evidence)" if a.get("status") == "partial" else ""))
+        elif key is None:
+            out.append(f"{label}: waitlist sign-ups vs. the pre-set target (see demand test below)")
+        else:
+            out.append(f"{label}: unknown — ASSUMPTION to test")
+    return out
 
 
 def artifact_url(vid, name):
@@ -171,7 +193,7 @@ class Orchestrator:
 
         _checkpoint(vid, "discover", "Assessing feasibility across 5 dimensions…")
         feas = self.feasibility.run({"venture": v, "stage": "discover"})
-        gate = feas.get("gate_recommendation", "REPEAT")
+        gate = gates.discover_gate(feas)
         _checkpoint(vid, "discover", f"Verdict: {str(feas.get('classification', '')).title()}")
 
         _checkpoint(vid, "discover", "Building business map (12 core aspects)…")
@@ -214,14 +236,7 @@ class Orchestrator:
         n_con = sum(x["verdict"] == "contradicted" for x in a)
         n_unv = len(a) - n_sup - n_con
         _checkpoint(vid, "validate", f"{n_sup} supported, {n_con} contradicted, {n_unv} unverified")
-        if not a:
-            gate = "REPEAT"
-        elif n_con * 2 >= len(a):
-            gate = "PIVOT"
-        elif n_con == 0 and n_sup >= 1:
-            gate = "GO"
-        else:
-            gate = "REPEAT"
+        gate = gates.validate_gate(a)
         icon = {"supported": "Supported", "contradicted": "Contradicted", "unverified": "Unverified"}
         return self._finish(
             vid, "validate", gate=gate, rationale="", agent="validation", action="Assumption validation",
@@ -235,7 +250,13 @@ class Orchestrator:
                 ("Assumptions", [f"{icon[x['verdict']]} — {x['assumption']} ({x['reasoning']})" for x in a]),
                 ("Experiments to run", [f"{e.get('name')}: {e.get('method', '')} Success = {e.get('success_metric', '')} "
                                         f"({e.get('cost', '?')}, {e.get('time', '?')})" for e in res["experiments"]]),
-                ("Customer interview questions", res["interview_questions"]),
+                ("Customer interview questions (Mom Test)", res["interview_questions"]),
+                ("Lean Canvas (from the business map)", lean_canvas(v)),
+                ("Landing-page demand test (MOCKED — no page is deployed)", [
+                    f"Pre-set target: {gates.WAITLIST_TARGET['signups']} waitlist sign-ups in "
+                    f"{gates.WAITLIST_TARGET['days']} days, fixed before the test.",
+                    "Enter the REAL sign-up count on the Overview when the test ends; the gate "
+                    "recommends go, repeat, pivot or stop from that number. Sign-ups are never generated."]),
             ],
             links=[("Download validation plan & interview script", artifact_url(vid, "validation-plan"))])
 
@@ -255,7 +276,7 @@ class Orchestrator:
         test = self.testing.generate_smoke_test(v, spec, out_dir)
         _checkpoint(vid, "build", f"Checks: {test['output']}")
 
-        gate = "GO" if test["passed"] and len(features) >= 3 else "REPEAT"
+        gate = gates.build_gate(test["passed"], len(features))
         return self._finish(
             vid, "build", gate=gate, rationale="", agent="development", action="MVP prototype build",
             facts={"features": [f.get("name") for f in features], "tests": test["output"],
@@ -281,7 +302,7 @@ class Orchestrator:
         _checkpoint(vid, "commercial", "Calculating unit economics…")
         eco = self.financial.model_unit_economics(v, pricing)
         margin = eco.get("gross_margin_pct", 0)
-        gate = "GO" if margin > 20 else "REPEAT"
+        gate = gates.commercial_gate(margin)
         cur = eco.get("currency") or ""
         return self._finish(
             vid, "commercial", gate=gate, rationale="", agent="financial", action="Pricing and unit economics",
@@ -310,7 +331,7 @@ class Orchestrator:
         unsupported = m.get("unsupported_claims", [])
         supported = [c.get("text", "") for c in m.get("claims", []) if c.get("status") != "unsupported"]
         _checkpoint(vid, "launch", f"{len(m.get('claims', []))} marketing claims, {len(unsupported)} need evidence")
-        gate = "GO" if not unsupported else "REPEAT"
+        gate = gates.launch_gate(unsupported)
         return self._finish(
             vid, "launch", gate=gate, rationale="", agent="marketing", action="Launch materials",
             facts={"tagline": m.get("tagline"), "claims": len(m.get("claims", [])), "unsupported": unsupported},
@@ -340,7 +361,7 @@ class Orchestrator:
                 cases = self.case_research.find_similar_cases(v, str(risks[0].get("risk", ""))[:100]).get("cases", [])
             except Exception:
                 cases = []
-        gate = "GO"
+        gate = gates.operate_gate()
         out = self._finish(
             vid, "operate", gate=gate, rationale="", agent="operations", action="Operating plan",
             facts={"kpis": kpis, "first_action": plan.get("first_action_tomorrow")},
@@ -401,17 +422,65 @@ class Orchestrator:
             raise ValueError("This decision was already resolved or doesn't belong to this venture.")
 
     def approve_and_advance(self, vid, approval_id):
+        return self.resolve_gate(vid, approval_id, "continue")
+
+    def resolve_gate(self, vid, approval_id, choice="continue"):
+        """The founder decides what a gate actually does: continue, repeat, pivot back or stop.
+
+        The gate's recommendation is advice; continuing against a REPEAT/PIVOT/STOP recommendation is
+        an explicit, logged founder override. Every choice is recorded with approved_by = founder."""
+        if choice not in gates.CHOICES:
+            raise ValueError(f"unknown choice: {choice}")
         v = database.get_venture(vid)
         if not v:
             raise ValueError("unknown venture")
         self._pending_approval(vid, approval_id)
+        rec = next((a["payload"].get("recommendation") for a in approval_manager.list_pending(vid)
+                    if a["id"] == approval_id), None)
+        stage = v["current_stage"]
         approval_manager.resolve(approval_id, "approved")
-        StateManager.set_stage(vid, v["current_stage"], "completed")
-        decision_log.log(vid, stage=v["current_stage"], agent="founder",
-                         action="Founder approval", decision="APPROVED",
-                         rationale="Founder approved the decision and moved on.", approval_status="approved")
-        nxt = StateManager.advance_stage(vid)
-        return {"advanced_to": nxt, "finished": v["current_stage"] == STAGES[-1]}
+        follows = gates.CHOICES[choice] == rec
+        label = {"continue": "continue to the next phase", "repeat": "repeat this phase",
+                 "pivot": "pivot back", "stop": "stop the venture"}[choice]
+        rationale = (f"Founder chose to {label}" + (" (as recommended)." if follows else
+                     f" — overriding the {rec or 'gate'} recommendation."))
+        result = {"choice": choice, "recommendation": rec, "override": not follows,
+                  "advanced_to": stage, "finished": False}
+        if choice == "continue":
+            StateManager.set_stage(vid, stage, "completed")
+            result["advanced_to"] = StateManager.advance_stage(vid)
+            result["finished"] = stage == STAGES[-1]
+        elif choice == "repeat":
+            StateManager.set_stage(vid, stage, "awaiting_input")
+        elif choice == "pivot":
+            target = gates.PIVOT_TARGET[stage]
+            for s in STAGES[STAGES.index(target) + 1:STAGES.index(stage) + 1]:
+                StateManager.set_stage(vid, s, "not_started")
+            StateManager.set_stage(vid, target, "awaiting_input")
+            database.update_venture(vid, current_stage=target)
+            result["advanced_to"] = target
+        else:  # stop
+            StateManager.set_stage(vid, stage, "stopped")
+            database.update_venture(vid, gate="STOP")
+        decision_log.log(vid, stage=stage, agent="founder",
+                         action=f"Gate decision: {choice}" + (" (override)" if not follows else ""),
+                         decision="APPROVED", rationale=rationale, approval_status="approved",
+                         model="rule-based")
+        return result
+
+    def record_demand_test(self, vid, signups):
+        """MOCKED landing page, REAL numbers: score founder-reported sign-ups against the pre-set target."""
+        v = database.get_venture(vid)
+        if not v:
+            raise ValueError("unknown venture")
+        res = gates.waitlist_gate(signups)
+        brief = v.get("brief") or {}
+        brief["demand_test"] = {**res, "recorded_at": utcnow(), "reported_by": "founder",
+                                "landing_page": "MOCKED — no page deployed"}
+        database.update_venture(vid, brief=brief)
+        decision_log.log(vid, stage="validate", agent="gate", action="Waitlist demand gate",
+                         decision=res["outcome"], rationale=res["rationale"], model="rule-based")
+        return brief["demand_test"]
 
     def reject(self, vid, approval_id):
         self._pending_approval(vid, approval_id)

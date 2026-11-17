@@ -150,7 +150,12 @@ function toastOk(m) { toast(m, "success"); }
 async function api(path, opts) {
   opts = opts || {};
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const raw = await res.text();
+    let msg = raw;
+    try { const j = JSON.parse(raw); if (j && j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch {}
+    throw new Error(msg || `Request failed (${res.status})`);
+  }
   return res.json();
 }
 
@@ -181,6 +186,62 @@ function humanize(s) {
   return s.replace(/\b[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+\b/g, (m) => m.replace(/_/g, " "));
 }
 function sentenceCase(s) { s = humanize(s).trim(); return s.charAt(0).toUpperCase() + s.slice(1); }
+// Founder choices at a gate → [choice, button label, recommendation it matches].
+function gateChoices(stage, isLast) {
+  return [["continue", isLast ? "Finish" : "Continue", "GO"], ["repeat", "Repeat this phase", "REPEAT"],
+          ["pivot", stage === "discover" ? "Pivot: reframe the idea" : "Pivot back a phase", "PIVOT"],
+          ["stop", "Stop venture", "STOP"]];
+}
+
+const MOCK_NOTES = {
+  validate: "MOCKED: landing-page demand test — no page is deployed; you enter real sign-up counts.",
+  commercial: "STUBBED: legal policy drafts are templates, not legal advice. No payments of any kind.",
+  launch: "MOCKED: store page, delivery and payments — nothing is published, sent or charged.",
+};
+
+function renderCost(data) {
+  let el = document.getElementById("cost-per-run");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cost-per-run";
+    el.className = "muted cost-line";
+    $("#overview-content").insertAdjacentElement("beforebegin", el);
+  }
+  const c = data.cost || { per_run_usd: 0, basis: "No paid APIs." };
+  el.textContent = `Cost per run: $${Number(c.per_run_usd || 0).toFixed(2)} — ${c.basis}`;
+}
+
+function renderDemandTest(data, currentStage) {
+  const order = state.config.stages;
+  const reached = order.indexOf(currentStage) >= order.indexOf("validate");
+  let box = document.getElementById("demand-test");
+  if (!reached) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "demand-test";
+    box.className = "card";
+    $("#pending-approvals").insertAdjacentElement("afterend", box);
+  }
+  const t = (data.venture.brief || {}).demand_test;
+  box.innerHTML = `
+    <h3 style="margin-top:0">Landing-page demand test <span class="mock-tag">MOCKED</span></h3>
+    <p class="muted" style="line-height:1.55;margin:0 0 10px">No page is deployed. The target was set before the test:
+      <strong>100 waitlist sign-ups in 14 days</strong>. Enter the real number you got — VentureOS never generates sign-ups.</p>
+    ${t ? `<div style="margin-bottom:10px">${decisionBadge(t.outcome)} <span class="muted">${escapeHtml(t.rationale)}</span></div>` : ""}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="signups-input" type="number" min="0" step="1" placeholder="Real sign-ups" style="width:160px" />
+      <button class="primary" id="signups-save">Score against target</button>
+    </div>`;
+  box.querySelector("#signups-save").onclick = async () => {
+    const n = parseInt(box.querySelector("#signups-input").value, 10);
+    if (!Number.isFinite(n) || n < 0) { toastError("Enter the real number of sign-ups (0 or more)."); return; }
+    try {
+      const r = await api(`/api/ventures/${state.ventureId}/demand-test`, { method: "POST", body: JSON.stringify({ signups: n }) });
+      (r.outcome === "GO" ? toastOk : toastError)(r.rationale); await refresh();
+    } catch (e) { toastError(e.message); }
+  };
+}
+
 function stageLabel(s) { return (state.config && state.config.stage_labels[s]) || sentenceCase(s); }
 function decisionBadge(code, text) {
   const c = String(code || "").toUpperCase();
@@ -650,7 +711,7 @@ async function refresh() {
     : "Not runnable";
 
   const warn = data.venture.gate === "STOP"
-    ? `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.35);line-height:1.5"><strong>⚠️ Stop recommended.</strong> The agents found this venture not feasible as described. Review the summary below — approve to continue anyway, or reject and re-run after adjusting the idea.</div>`
+    ? `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.35);line-height:1.5"><strong>⚠️ Stop recommended.</strong> The agents found this venture not feasible as described. Review the evidence below, then choose: stop, pivot (reframe the idea), repeat the research, or continue anyway as a recorded override.</div>`
     : "";
   const vid = state.ventureId;
   const doneBanner = allDone ? `<div class="done-banner"><strong>🎉 Your venture plan is complete.</strong>
@@ -742,15 +803,23 @@ async function refresh() {
         ${a.payload.classification ? `<div style="margin-top:8px;font-size:13px;color:var(--muted)">Result: ${escapeHtml(sentenceCase(String(a.payload.classification).toLowerCase()))}</div>` : ""}
         ${sources.length > 0 ? `<div class="approval-source-list"><div class="label">Sources used</div>${sources.map((s) => `<div><a href="${escapeHtml(s)}" target="_blank" rel="noopener">${escapeHtml(s)}</a></div>`).join("")}</div>` : ""}
         ${(a.payload.unsupported_claims || []).length > 0 ? `<div style="margin-top:12px;padding:10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;font-size:13px"><strong>⚠️ Unsupported claims:</strong><ul style="margin:6px 0 0 16px;padding:0">${(a.payload.unsupported_claims || []).map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul></div>` : ""}
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="primary" data-approve="${a.id}">${currentStage === stagesAll[stagesAll.length - 1] ? "Approve & finish" : "Approve & continue"}</button>
+        <div class="muted" style="margin-top:12px;font-size:12px">Your decision — the agents only recommend:</div>
+        <div class="gate-choices" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          ${gateChoices(currentStage, currentStage === stagesAll[stagesAll.length - 1]).map(([choice, label, code]) =>
+            `<button class="${code === (a.payload.recommendation || "GO") ? "primary" : "ghost"}" data-choice="${choice}" data-code="${code}">${escapeHtml(label)}${code === (a.payload.recommendation || "GO") ? " · recommended" : ""}</button>`).join("")}
           <button class="ghost" data-reject="${a.id}">Reject</button>
         </div>`;
-      d.querySelector("[data-approve]").onclick = async () => {
-        try { const r = await api("/api/approve", { method: "POST", body: JSON.stringify({ venture_id: state.ventureId, approval_id: a.id }) });
-          toastOk(r.finished ? "Venture plan complete 🎉" : "Approved — next: " + stageLabel(r.advanced_to)); await refresh();
+      d.querySelectorAll("[data-choice]").forEach((btn) => btn.onclick = async () => {
+        const rec = a.payload.recommendation || "GO";
+        if (btn.dataset.code !== rec && !confirm(`The agents recommend "${DECISION_TEXT[rec] || rec}". Override and choose "${btn.textContent.trim()}"? This is recorded in the decision log.`)) return;
+        try {
+          const r = await api("/api/approve", { method: "POST", body: JSON.stringify({ venture_id: state.ventureId, approval_id: a.id, choice: btn.dataset.choice }) });
+          const msg = { continue: r.finished ? "Venture plan complete 🎉" : "Continuing — next: " + stageLabel(r.advanced_to),
+                        repeat: "Phase reopened — run it again when ready", pivot: "Pivoted back to " + stageLabel(r.advanced_to),
+                        stop: "Venture stopped. Nothing further will run." }[r.choice];
+          toastOk(msg + (r.override ? " (override recorded)" : "")); await refresh();
         } catch (e) { toastError(e.message); }
-      };
+      });
       d.querySelector("[data-reject]").onclick = async () => {
         try { await api("/api/reject", { method: "POST", body: JSON.stringify({ venture_id: state.ventureId, approval_id: a.id }) });
           toastError("Rejected"); await refresh();
@@ -759,6 +828,9 @@ async function refresh() {
       ap.appendChild(d);
     }
   }
+
+  renderDemandTest(data, currentStage);
+  renderCost(data);
 
   // Stages panel
   const cards = $("#stage-cards");
@@ -769,7 +841,8 @@ async function refresh() {
     c.className = "stage-card";
     const r = (st.notes || {}).report;
     c.innerHTML = `<h3>${state.config.stage_labels[s]}</h3><span class="status-tag">${formatStatus(st.status)}</span>
-      ${r ? `<div style="margin-top:10px">${decisionBadge(r.decision, r.decision_text)}</div><p class="muted" style="line-height:1.55;margin:8px 0 0">${escapeHtml(r.summary)}</p>` : ""}`;
+      ${r ? `<div style="margin-top:10px">${decisionBadge(r.decision, r.decision_text)}</div><p class="muted" style="line-height:1.55;margin:8px 0 0">${escapeHtml(r.summary)}</p>` : ""}
+      ${MOCK_NOTES[s] ? `<div class="mock-note">${escapeHtml(MOCK_NOTES[s])}</div>` : ""}`;
     cards.appendChild(c);
   }
 

@@ -52,6 +52,11 @@ class NewResearch(BaseModel):
 class ApproveRequest(BaseModel):
     venture_id: str
     approval_id: str
+    choice: str = "continue"  # continue | repeat | pivot | stop — the founder's gate decision
+
+
+class DemandTestRequest(BaseModel):
+    signups: int
 
 class ThemePayload(BaseModel):
     theme: dict
@@ -114,7 +119,9 @@ def get_venture(vid: str):
             "messages": database.get_messages(vid),
             "evidence": evidence_ledger.list_for(vid),
             "evidence_summary": evidence_ledger.summary(vid),
-            "approvals": approval_manager.list_pending(vid)}
+            "approvals": approval_manager.list_pending(vid),
+            # No paid API is ever called: local open-weight model + free web search.
+            "cost": {"per_run_usd": 0.0, "basis": "Local open-weight model via Ollama and free web search — no paid APIs."}}
 
 
 @app.post("/api/ventures/{vid}/rename")
@@ -355,7 +362,7 @@ async def run_stage(vid: str, stage: str):
 @app.post("/api/approve")
 def approve(body: ApproveRequest):
     try:
-        return orchestrator.approve_and_advance(body.venture_id, body.approval_id)
+        return orchestrator.resolve_gate(body.venture_id, body.approval_id, body.choice)
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -366,6 +373,17 @@ def reject(body: ApproveRequest):
         return orchestrator.reject(body.venture_id, body.approval_id)
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+@app.post("/api/ventures/{vid}/demand-test")
+def demand_test(vid: str, body: DemandTestRequest):
+    """MOCKED landing page; the founder reports the REAL sign-up count and the gate scores it."""
+    if body.signups < 0:
+        raise HTTPException(400, "sign-ups can't be negative")
+    try:
+        return orchestrator.record_demand_test(vid, body.signups)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @app.post("/api/ventures/{vid}/stop")

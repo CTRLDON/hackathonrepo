@@ -528,3 +528,12 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .venture-name.renamable:hover { outline: 1px dashed var(--border); outline-offset: 3px; }
 .rename-input { width: 100%; font: inherit; font-weight: 700; padding: 4px 6px; border-radius: 6px;
   border: 1px solid var(--accent); background: var(--surface); color: var(--fg); }
+
+/* ── Mock labels, cost, gate choices ─────────────────────────────────── */
+.mock-note { margin-top: 10px; padding: 8px 10px; border-radius: var(--radius-sm); font-size: 12px; line-height: 1.5;
+  border: 1px dashed rgba(251,191,36,.5); background: rgba(251,191,36,.08); color: #fcd34d; }
+.mock-tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 10px;
+  font-weight: 800; letter-spacing: .06em; vertical-align: middle; background: rgba(251,191,36,.18); color: #fcd34d; }
+.cost-line { font-size: 12px; margin: -6px 0 12px; }
+#demand-test input { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px; font: inherit; }
