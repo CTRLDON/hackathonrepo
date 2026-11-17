@@ -9,10 +9,10 @@ Computed from this venture's evidence ledger, decision log and approvals (no mod
 | Every claim cites a source or is labelled ASSUMPTION | PASS | 20 sourced, 1 labelled ASSUMPTION, 0 unlabelled |
 | Every gate is decided by the founder | PASS | 1 gate recommendations, 0 founder decisions, 0 recorded overrides, 1 awaiting decision |
 | Nothing published, sent or spent without approval | PASS | 0 (MOCKED) publish actions, all after founder approval |
-| No payments of any kind | PASS | Sale to cash runs on a MOCKED in-memory ledger only |
+| No payments of any kind | PASS | payments / delivery / refunds / reconcile all flagged MOCKED; no payment SDK in requirements.txt |
 | Guardrails hold against trick prompts | PASS | 53/53 red-team cases handled correctly; 0 refusals/blocks logged for this venture |
 | Every agent action is logged | PASS | 5 agent actions and 6 log entries in total |
-| Cost per run reported | PASS | $0.00 — local open-weight model and free web search; no paid APIs |
+| Cost per run reported | PASS | $0.00 — MODEL_PROVIDER=ollama (local open-weight model), free web search; no paid APIs |
 
 ## Mocks and stubs
 

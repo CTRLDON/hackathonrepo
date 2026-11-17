@@ -107,7 +107,7 @@ Every phase ends in a gate. A gate is one of three things: a pre-set evidence th
 - **Continue:** advance to the next phase.
 - **Repeat stage:** clear the phase's evidence and run it again.
 - **Pivot back:** return to the previous phase with the new direction (`PIVOT_TARGET`; Discover pivots onto itself with a reframed idea). Later phases are reset to not started.
-- **Stop venture:** the venture is marked stopped and nothing further runs.
+- **Stop venture:** the phase is marked stopped; nothing runs again unless the founder explicitly re-runs it, which is logged. While a decision is pending, no phase can run.
 
 The recommended outcome is highlighted. Approving never silently advances past a STOP: continuing after a STOP is an explicit, logged override.
 

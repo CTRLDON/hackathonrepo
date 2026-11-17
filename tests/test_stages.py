@@ -168,13 +168,13 @@ def test_artifacts_reject_unknown_names(env):
 def test_commercial_and_launch_write_stubbed_policies_and_mocked_store_page(env):
     c, _, out = env
     vid = _venture_at("commercial")
-    assert c.post(f"/api/ventures/{vid}/run-stage/commercial").json()["stage_status"] == "awaiting_approval"
+    com = c.post(f"/api/ventures/{vid}/run-stage/commercial").json()
+    assert com["stage_status"] == "awaiting_approval"
     assert "NOT LEGAL ADVICE" in (out / vid / "commercial" / "policies.md").read_text()
     assert c.get(f"/api/ventures/{vid}/artifacts/policies").status_code == 200
-
-    from memory import database
-    database.update_venture(vid, current_stage="launch")
-    database.set_stage_status(vid, "commercial", "completed")
+    # Launch can't run while the Commercial decision is pending; the founder decides first.
+    assert c.post(f"/api/ventures/{vid}/run-stage/launch").json()["status"] in ("already_ran", "wrong_stage")
+    c.post("/api/approve", json={"venture_id": vid, "approval_id": com["approval_id"], "choice": "continue"})
     res = c.post(f"/api/ventures/{vid}/run-stage/launch").json()
     assert "MOCKED" in (out / vid / "launch" / "store_page.html").read_text()
     # Nothing is published without the founder's Launch approval.

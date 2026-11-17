@@ -1,5 +1,6 @@
 {
   "stage": "discover",
+  "labels": "Feasibility scores, reasons and rationale are ASSUMPTION: the model's judgement over the sources it cites. Research findings carry their own source URL or type=assumption.",
   "result": {
     "stage_status": "stopped",
     "approval_id": "8f132db3-42de-4236-b37e-a6526f1e87ed",

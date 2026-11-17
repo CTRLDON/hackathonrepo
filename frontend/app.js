@@ -831,7 +831,7 @@ async function refresh() {
           const r = await api("/api/approve", { method: "POST", body: JSON.stringify({ venture_id: state.ventureId, approval_id: a.id, choice: btn.dataset.choice }) });
           const msg = { continue: r.finished ? "Venture plan complete 🎉" : "Continuing — next: " + stageLabel(r.advanced_to),
                         repeat: "Phase reopened — run it again when ready", pivot: "Pivoted back to " + stageLabel(r.advanced_to),
-                        stop: "Venture stopped. Nothing further will run." }[r.choice];
+                        stop: "Venture stopped. Nothing runs unless you start a phase again." }[r.choice];
           toastOk(msg + (r.override ? " (override recorded)" : "")); await refresh();
         } catch (e) { toastError(e.message); }
       });

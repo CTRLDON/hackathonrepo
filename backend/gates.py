@@ -2,7 +2,7 @@
 
 Every phase ends at a gate. The gate only RECOMMENDS one of GO / REPEAT / PIVOT / STOP; the founder
 then chooses what actually happens (continue, repeat, pivot back or stop) in the UI, and that choice
-is recorded with approved_by = founder. Nothing advances without it (backend/approval_manager.py).
+is recorded with approved_by = founder. Nothing advances without it (backend/approval.py).
 """
 from __future__ import annotations
 

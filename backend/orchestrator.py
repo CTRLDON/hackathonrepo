@@ -18,13 +18,13 @@ from agents.research_agent import ResearchAgent
 from agents.strategy_agent import StrategyAgent
 from agents.testing_agent import TestingAgent
 from agents.validation_agent import ValidationAgent
-from backend import approval_manager, gates
+from backend import approval as approval_manager, gates
 from backend.state_manager import StateManager
 from config import OUTPUTS_DIR, STAGES
 from memory import database
 from memory.database import connect
 from memory.schemas import utcnow
-from services import decision_log, evidence_ledger, guardrails, policies, stage_report, store_page, venture_report
+from services import decision_log, evidence_ledger, guardrails, policies, sources, stage_report, store_page, venture_report
 
 # Downloadable outputs, by public name -> path inside outputs/<venture id>/
 ARTIFACTS = {
@@ -227,7 +227,7 @@ class Orchestrator:
             highlights=[("Verdict", str(feas.get("classification", "—")).title()),
                         ("Sources found", total_sources), ("Findings", total_findings)],
             sections=[
-                ("Feasibility by dimension", [f"{k.title()}: {str(d.get('score', '?')).title()} — {d.get('reason', '')}"
+                ("Feasibility by dimension (ASSUMPTION — the model's judgement over the sources listed)", [f"{k.title()}: {str(d.get('score', '?')).title()} — {d.get('reason', '')}"
                                               for k, d in dims.items() if isinstance(d, dict)]),
                 ("Business map — 12 core aspects", [f"{a['label']}: {a['summary']}"
                                                     for a in (bmap or {}).get("aspects", [])]),
@@ -235,7 +235,8 @@ class Orchestrator:
                 ("Recommended next steps", feas.get("next_steps") or []),
             ],
             links=[("Open the business mind map", "#mindmap")] if bmap else None,
-            extra={"classification": feas.get("classification"), "sources_used": feas.get("sources_used", [])})
+            extra={"classification": feas.get("classification"),
+                   "sources_used": sources.specific(feas.get("sources_used", []))})
         return {**out, "feasibility": feas}
 
     # ── 2. Validate ──────────────────────────────────────────────────────
@@ -454,15 +455,16 @@ class Orchestrator:
                     "message": f"You are on '{v['current_stage']}', not '{stage}'."}
         stages = database.get_stages(vid)
         current_status = stages[stage]["status"]
-        if current_status in ("in_progress", "awaiting_approval", "completed"):
+        if current_status in ("in_progress", "awaiting_approval", "completed") or approval_manager.list_pending(vid):
             return {"status": "already_ran",
-                    "message": f"This stage is {current_status.replace('_', ' ')}. Approve or reject the pending decision first."}
+                    "message": "A founder decision is pending for this stage — choose continue, repeat, pivot "
+                               "or stop first. Nothing runs past a gate without your decision."}
         if current_status in ("awaiting_input", "stopped"):
-            # Re-run (after a rejection, a STOP verdict, or a failed run): start clean.
+            # Re-run after the founder chose repeat / pivot / stop or rejected: start clean, and log it.
             with database.connect() as c:
                 c.execute("DELETE FROM evidence WHERE venture_id=? AND stage=?", (vid, stage))
-                c.execute("UPDATE approvals SET status='rejected', resolved_at=? "
-                          "WHERE venture_id=? AND status='pending'", (utcnow(), vid))
+            decision_log.log(vid, stage=stage, agent="founder", action=f"Re-run {stage}",
+                             decision="DONE", rationale="Founder started the phase again.", model="rule-based")
         dispatch = {"discover": self.run_discover, "validate": self.run_validate,
                     "build": self.run_build, "commercial": self.run_commercial,
                     "launch": self.run_launch, "operate": self.run_operate}
@@ -482,7 +484,7 @@ class Orchestrator:
     def approve_and_advance(self, vid, approval_id):
         return self.resolve_gate(vid, approval_id, "continue")
 
-    def resolve_gate(self, vid, approval_id, choice="continue"):
+    def resolve_gate(self, vid, approval_id, choice="continue", actor="founder"):
         """The founder decides what a gate actually does: continue, repeat, pivot back or stop.
 
         The gate's recommendation is advice; continuing against a REPEAT/PIVOT/STOP recommendation is
@@ -520,7 +522,7 @@ class Orchestrator:
         else:  # stop
             StateManager.set_stage(vid, stage, "stopped")
             database.update_venture(vid, gate="STOP")
-        decision_log.log(vid, stage=stage, agent="founder",
+        decision_log.log(vid, stage=stage, agent=actor,
                          action=f"Gate decision: {choice}" + (" (override)" if not follows else ""),
                          decision="APPROVED", rationale=rationale, approval_status="approved",
                          model="rule-based")

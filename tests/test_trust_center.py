@@ -33,3 +33,9 @@ def test_launch_copy_guardrail():
     assert guardrails.check_claim("Join 10,000 happy customers")["rule"] == "fake_social_proof"
     assert guardrails.check_claim("Act now, only 3 spots left")["rule"] == "false_urgency"
     assert guardrails.check_claim("Turn call notes into a project brief in minutes") is None
+
+
+def test_only_specific_pages_count_as_sources():
+    from services.sources import specific
+    assert specific(["https://www.statista.com/", "https://www.gartner.com/en",
+                     "https://example.org/report/2026"]) == ["https://example.org/report/2026"]

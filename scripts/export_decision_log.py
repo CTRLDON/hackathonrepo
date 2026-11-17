@@ -13,9 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from memory.database import connect  # noqa: E402
+from services.sources import specific  # noqa: E402
 
 OUTCOMES = {"GO", "REPEAT", "PIVOT", "STOP"}
-NO_SOURCES = {"founder", "guardrails", "gate", "policies", "store_page", "testing"}
+NO_SOURCES = {"founder", "founder (scripted demo run)", "founder_understanding", "guardrails", "gate",
+              "policies", "store_page", "testing"}
 
 
 def _default_model():
@@ -46,7 +48,7 @@ def export(path="decision_log.json"):
             "agent": d.get("agent"),
             "action": d.get("action"),
             "sources": [] if (rule_based or d.get("agent") in NO_SOURCES)
-            else sources_by.get((d.get("venture_id"), d.get("stage")), [])[:10],
+            else specific(sources_by.get((d.get("venture_id"), d.get("stage")), []))[:10],
             "model": None if rule_based else (d.get("model") if d.get("model") not in (None, "", "unknown") else model),
             "cost": 0,
             "approved_by": "founder" if d.get("approval_status") == "approved" else None,

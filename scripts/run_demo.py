@@ -7,6 +7,7 @@ sys.path.insert(0, str(ROOT))
 from backend.orchestrator import Orchestrator
 from memory import database
 from scripts.export_decision_log import export
+from services.sources import specific
 
 OUT = ROOT / "outputs"
 OUT.mkdir(exist_ok=True)
@@ -60,7 +61,11 @@ def run_stage_timed(orch, vid, stage):
 
 def dump(stage, result, phase, suffix=""):
     """Write phase<N>_step1_<stage><suffix>.json and phase<N>_gate_<outcome><suffix>.json."""
-    save(f"phase{phase}_step1_{stage}{suffix}.json", {"stage": stage, "result": result})
+    save(f"phase{phase}_step1_{stage}{suffix}.json", {
+        "stage": stage,
+        "labels": ("Feasibility scores, reasons and rationale are ASSUMPTION: the model's judgement over the "
+                   "sources it cites. Research findings carry their own source URL or type=assumption."),
+        "result": result})
     if result.get("_timeout") or result.get("_error"):
         gate = "TIMEOUT" if result.get("_timeout") else "ERROR"
         save(f"phase{phase}_gate_{gate.lower()}{suffix}.json", {
@@ -78,7 +83,8 @@ def dump(stage, result, phase, suffix=""):
         "decision_text": report.get("decision_text"),
         "classification": feas.get("classification"),
         "rationale": feas.get("rationale") or report.get("summary"),
-        "sources_used": feas.get("sources_used") or [],
+        "rationale_label": "ASSUMPTION — the model's judgement over the sources below; no single source backs each sentence",
+        "sources_used": specific(feas.get("sources_used") or []),
         "assumptions_labelled": "findings without a source URL are stored as type=assumption",
         "approved_by": None,
     })
@@ -87,7 +93,8 @@ def dump(stage, result, phase, suffix=""):
 
 def approve(orch, vid, aid):
     try:
-        orch.approve_and_advance(vid, aid)
+        # Scripted run: logged as the scripted founder, not as a live founder click.
+        orch.resolve_gate(vid, aid, "continue", actor="founder (scripted demo run)")
         say(f"  [gate] approved {aid[:8]}...")
     except Exception as e:
         say(f"  [gate] approve failed: {e}")
