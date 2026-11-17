@@ -53,7 +53,7 @@ MUST_NEVER = [
         r"\b(write|generate|create|post|make|draft|invent)\b[^.]{0,25}\b(reviews|testimonials)\b(?![^.]{0,20}\b(section|page|widget|form|template)s?\b)",
     ]),
     ("fake_signups", "fake sign-ups, users or traction", [
-        r"\b(fake|false|made[- ]up|make up|making up|fabricat\w*|inflat\w*|bogus)\b[^.]{0,30}\b(sign[- ]?ups?|waitlist|users|followers|downloads|traction|customers|metrics)\b",
+        r"\b(fake|false|made[- ]up|make up|making up|fabricat\w*|inflat\w*|bogus)\b[^.]{0,30}\b(sign[- ]?ups?|waitlist|users|followers|downloads?|traction|customers|metrics|numbers|stats)\b",
     ]),
     ("false_urgency", "create fake urgency or countdown pressure", [
         r"\b(fake|false|artificial|manufactured)\b[^.]{0,20}\b(urgency|scarcity|deadlines?|countdowns?)\b",
@@ -117,4 +117,22 @@ def check_idea(text: str):
                             "Try reframing the idea as a digital product — for example software, a web app, "
                             "templates, a course or a digital service — that doesn't give financial, "
                             "medical or legal advice.")}
+    return check_request(text)
+
+
+# Outgoing copy (launch posts, store page): language we never publish, whatever the evidence says.
+CLAIM_RULES = [
+    ("income_promise", r"\b(guarantee[ds]?|guaranteed|risk[- ]free|make money fast|passive income|get rich)\b"),
+    ("false_urgency", r"\b(act now|hurry|limited time|only \d+ (left|spots|seats)|ends (tonight|today|soon)|last chance)\b"),
+    ("fake_social_proof", r"\b(\d[\d,]*\+?|thousands of|millions of) (happy|satisfied|loyal) (customers|users|clients)\b"),
+    ("fake_social_proof", r"\b(five|5)[- ]star (reviews?|rated)\b|\brated #?1\b|\b#1 (app|tool|platform)\b"),
+]
+_CLAIMS = [(rule, re.compile(p, _F)) for rule, p in CLAIM_RULES]
+
+
+def check_claim(text: str):
+    """Outgoing marketing claim check. None = publishable wording; else the rule it breaks."""
+    for rule, p in _CLAIMS:
+        if p.search(text or ""):
+            return {"rule": rule, "message": f"Blocked by guardrail ({rule.replace('_', ' ')}): we never publish this."}
     return check_request(text)

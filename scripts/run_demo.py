@@ -1,6 +1,6 @@
 """End-to-end demo. Fails fast — hard timeout per stage."""
 from __future__ import annotations
-import json, signal, sys, time, traceback
+import json, os, shutil, signal, sys, time, traceback
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -11,7 +11,7 @@ from scripts.export_decision_log import export
 OUT = ROOT / "outputs"
 OUT.mkdir(exist_ok=True)
 
-STAGE_TIMEOUT = 90
+STAGE_TIMEOUT = int(os.getenv("DEMO_STAGE_TIMEOUT", "300"))
 STAGES = ["discover", "validate", "build", "commercial", "launch", "operate"]
 WEAK = "An AI that predicts lottery numbers with 99% accuracy."
 # Digital products only — physical goods, finance/crypto and health/legal advice are excluded.
@@ -102,6 +102,25 @@ def run_weak(orch):
     say(f"  [gate] {gate}")
 
 
+# Per-venture artifacts copied into outputs/ under phase/step names (text formats only).
+ARTIFACT_COPIES = [
+    ("validation/validation_plan.md", "phase2_step2_validation_plan.md"),
+    ("mvp/index.html", "phase3_step2_prototype.html"),
+    ("commercial/policies.md", "phase4_step2_policy_drafts.md"),
+    ("launch/store_page.html", "phase5_step2_store_page.html"),
+    ("final/venture_report.html", "phase6_step2_venture_report.html"),
+    ("final/trust_report.md", "phase6_step3_trust_report.md"),
+]
+
+
+def copy_artifacts(vid):
+    for rel, name in ARTIFACT_COPIES:
+        src = OUT / vid / rel
+        if src.is_file():
+            shutil.copyfile(src, OUT / name)
+            say(f"  [out] {name}")
+
+
 def run_strong(orch):
     say("\n=== Strong idea (full pipeline) ===")
     v = database.create_venture(name="BriefBuilder", idea=STRONG)
@@ -115,6 +134,7 @@ def run_strong(orch):
         aid = result.get("approval_id")
         if aid:
             approve(orch, v["id"], aid)
+    copy_artifacts(v["id"])
 
 
 def main():

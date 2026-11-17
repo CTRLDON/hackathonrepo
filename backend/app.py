@@ -11,7 +11,7 @@ from backend.orchestrator import ARTIFACTS, Orchestrator, recover_interrupted_st
 from agents.founder_agent import REQUIRED_FIELDS, normalize_state
 from config import FRONTEND_DIR, OUTPUTS_DIR, STAGE_LABELS, STAGES, THEME_BY_CATEGORY
 from memory import database
-from services import decision_log, evidence_ledger, guardrails
+from services import decision_log, evidence_ledger, guardrails, trust
 from tools.ollama_client import OllamaError, get_client
 
 app = FastAPI(title="VentureOS", version="1.0.0")
@@ -373,6 +373,31 @@ def reject(body: ApproveRequest):
         return orchestrator.reject(body.venture_id, body.approval_id)
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+class TryPrompt(BaseModel):
+    prompt: str
+
+
+@app.get("/api/trust/red-team")
+def trust_red_team():
+    """Attack our own guardrails with every trick prompt in evals/trick_prompts.json."""
+    return trust.red_team()
+
+
+@app.post("/api/trust/try")
+def trust_try(body: TryPrompt):
+    """Let anyone type a trick prompt and see whether (and why) it is refused — no model is called."""
+    if not body.prompt.strip():
+        raise HTTPException(400, "prompt required")
+    return trust.classify(body.prompt[:2000])
+
+
+@app.get("/api/ventures/{vid}/trust")
+def venture_trust(vid: str):
+    if not database.get_venture(vid):
+        raise HTTPException(404, "venture not found")
+    return trust.scorecard(vid)
 
 
 @app.post("/api/ventures/{vid}/demand-test")

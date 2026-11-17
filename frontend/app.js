@@ -634,6 +634,7 @@ function switchPanel(section) {
   panel.classList.add("entering");
   if (section === "mindmap") renderMindMap();
   if (section === "decisions") renderDecisions();
+  if (section === "trust") renderTrust();
   if (section === "ask") { const i = $("#ask-input"); if (i) i.focus(); }
 }
 
@@ -1089,8 +1090,41 @@ $$(".sidebar nav a").forEach((a) => a.addEventListener("click", async () => {
   panel.classList.add("entering");
   if (a.dataset.section === "mindmap") await renderMindMap();
   if (a.dataset.section === "decisions") await renderDecisions();
+  if (a.dataset.section === "trust") await renderTrust();
   if (a.dataset.section === "ask") { const i = $("#ask-input"); if (i) i.focus(); }
 }));
+
+async function renderTrust() {
+  const sc = $("#trust-scorecard"), rt = $("#trust-redteam");
+  if (!sc || !rt) return;
+  sc.innerHTML = rt.innerHTML = "<div class='muted'>Checking…</div>";
+  try {
+    const [card, red] = await Promise.all([api(`/api/ventures/${state.ventureId}/trust`), api("/api/trust/red-team")]);
+    sc.innerHTML = `<h3 style="margin-top:0">Honesty scorecard <span class="trust-score">${card.passed}/${card.total} rules verified</span></h3>
+      <ul class="trust-list">${card.checks.map((c) => `<li class="${c.ok ? "ok" : "warn"}"><span class="mark">${c.ok ? "✓" : "!"}</span>
+        <div><strong>${escapeHtml(c.rule)}</strong><div class="muted">${escapeHtml(c.detail)}</div></div></li>`).join("")}</ul>
+      <h4 style="margin:14px 0 6px">Mocks and stubs</h4>
+      <ul class="trust-list">${card.mocks.map((m) => `<li><span class="mock-tag">${escapeHtml(m.status)}</span>
+        <div><strong>${escapeHtml(m.part)}</strong><div class="muted">${escapeHtml(m.note)}</div></div></li>`).join("")}</ul>`;
+    rt.innerHTML = `<h3 style="margin-top:0">Red-team self-test <span class="trust-score">${red.passed}/${red.total} passed</span></h3>
+      <p class="muted" style="margin:0 0 10px">Every trick prompt in <code>evals/trick_prompts.json</code>, run against the guardrails right now.</p>
+      <div class="trust-table">${red.results.map((r) => `<div class="row ${r.passed ? "ok" : "warn"}">
+        <span class="mark">${r.passed ? "✓" : "✗"}</span><span class="exp">${r.expect === "refuse" ? "Refused" : "Allowed"}</span>
+        <span class="prompt">${escapeHtml(r.prompt)}</span><span class="rule">${escapeHtml(r.rule || "honest request")}</span></div>`).join("")}</div>`;
+  } catch (e) { sc.innerHTML = `<div style="color:#fca5a5">Failed: ${escapeHtml(e.message)}</div>`; rt.innerHTML = ""; }
+  const btn = $("#trust-try-btn"), inp = $("#trust-try-input"), out = $("#trust-try-result");
+  const go = async () => {
+    const prompt = inp.value.trim();
+    if (!prompt) return;
+    try {
+      const r = await api("/api/trust/try", { method: "POST", body: JSON.stringify({ prompt }) });
+      out.innerHTML = `<div class="trust-verdict ${r.refused ? "refused" : "allowed"}"><strong>${r.refused ? "Refused" : "Allowed"}</strong>
+        ${r.rule ? `<span class="rule">${escapeHtml(r.rule)}</span>` : ""}<div>${escapeHtml(r.message)}</div></div>`;
+    } catch (e) { toastError(e.message); }
+  };
+  btn.onclick = go;
+  inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
+}
 
 async function renderDecisions() {
   const box = document.getElementById("decisions-list");

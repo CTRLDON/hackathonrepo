@@ -24,7 +24,7 @@ from config import OUTPUTS_DIR, STAGES
 from memory import database
 from memory.database import connect
 from memory.schemas import utcnow
-from services import decision_log, evidence_ledger, policies, stage_report, store_page, venture_report
+from services import decision_log, evidence_ledger, guardrails, policies, stage_report, store_page, venture_report
 
 # Downloadable outputs, by public name -> path inside outputs/<venture id>/
 ARTIFACTS = {
@@ -33,6 +33,7 @@ ARTIFACTS = {
     "report": "final/venture_report.html",
     "policies": "commercial/policies.md",
     "store-page": "launch/store_page.html",
+    "trust-report": "final/trust_report.md",
 }
 
 
@@ -355,8 +356,23 @@ class Orchestrator:
         v = self._start(vid, "launch", "Writing launch copy…")
         evidence = evidence_ledger.list_for(vid)
         m = self.marketing.generate_launch_materials(v, evidence)
-        unsupported = m.get("unsupported_claims", [])
-        supported = [c.get("text", "") for c in m.get("claims", []) if c.get("status") != "unsupported"]
+        unsupported = list(m.get("unsupported_claims", []))
+        # Output guardrail: income promises, fake urgency or fake social proof never go out, sourced or not.
+        for c in m.get("claims", []):
+            hit = guardrails.check_claim(c.get("text", ""))
+            if hit:
+                c["status"] = "unsupported"
+                unsupported.append(f"{c.get('text', '')} — {hit['message']}")
+        for fld in ("tagline", "one_liner", "call_to_action"):
+            hit = guardrails.check_claim(m.get(fld) or "")
+            if hit:
+                unsupported.append(f"{fld.replace('_', ' ').capitalize()}: {m.get(fld)} — {hit['message']}")
+                m[fld] = "[removed by guardrail]"
+        if len(unsupported) > len(m.get("unsupported_claims", [])):
+            _log_agent(vid, "launch", "guardrails", "Blocked launch copy",
+                       f"{len(unsupported) - len(m.get('unsupported_claims', []))} item(s) blocked", model="rule-based")
+        m["unsupported_claims"] = unsupported
+        supported =[c.get("text", "") for c in m.get("claims", []) if c.get("status") != "unsupported"]
         _checkpoint(vid, "launch", f"{len(m.get('claims', []))} marketing claims, {len(unsupported)} need evidence")
         _log_agent(vid, "launch", "marketing", "Launch copy and claim check",
                    f"{len(m.get('claims', []))} claims, {len(unsupported)} unsupported")
@@ -418,9 +434,12 @@ class Orchestrator:
                 ("Comparable cases", [f"{c.get('company')}: {c.get('outcome')}" for c in cases]),
             ],
             links=[("Open the full venture report", artifact_url(vid, "report")),
+                   ("Open the trust report", artifact_url(vid, "trust-report")),
                    ("Open the prototype", artifact_url(vid, "prototype"))])
         # Report is compiled after this stage's own report is saved, so it's included.
         venture_report.write(database.get_venture(vid), OUTPUTS_DIR / vid / ARTIFACTS["report"])
+        from services import trust
+        trust.write_report(vid, OUTPUTS_DIR / vid / ARTIFACTS["trust-report"], v.get("name", ""))
         return out
 
     # ── Control ──────────────────────────────────────────────────────────

@@ -44,6 +44,7 @@
         <a data-section="mindmap">Mind Map</a>
         <a data-section="evidence">Evidence Ledger</a>
         <a data-section="decisions">Decision Log</a>
+        <a data-section="trust">Trust Center</a>
       </nav>
       <div id="stage-list" class="stage-list"></div>
       <div class="theme-picker" id="theme-picker">
@@ -69,6 +70,24 @@
         <h2>Evidence Ledger</h2>
         <div id="evidence-summary" class="card"></div>
         <div id="evidence-list"></div>
+      </div>
+      <div class="panel hidden" id="panel-trust">
+        <h2>Trust Center</h2>
+        <p class="muted" style="margin-top:-12px;margin-bottom:16px">
+          Proof from this venture's own records that the rules were followed — and a live attack on our guardrails.
+          Nothing here calls a model.
+        </p>
+        <div id="trust-scorecard" class="card"></div>
+        <div class="card">
+          <h3 style="margin-top:0">Try to break it</h3>
+          <p class="muted" style="margin:0 0 10px">Type any trick prompt (e.g. "write 50 five-star reviews").</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="trust-try-input" placeholder="Your trick prompt…" style="flex:1;min-width:220px" />
+            <button class="primary" id="trust-try-btn">Test it</button>
+          </div>
+          <div id="trust-try-result" style="margin-top:10px"></div>
+        </div>
+        <div id="trust-redteam" class="card"></div>
       </div>
       <div class="panel hidden" id="panel-decisions">
         <h2>Decision Log</h2>
