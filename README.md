@@ -10,7 +10,7 @@ docker compose up
 
 Then open **http://localhost:8000** in a browser. The landing page asks for your idea; the founder agent asks a few clarifying questions, drafts a business brief, and unlocks the six-phase pipeline. The first run pulls the model weights and installs Python dependencies (a few minutes); later runs use cached layers and start in seconds.
 
-See `.env.example` for the full list of settings. The default configuration uses a local Ollama model and requires no API key.
+Run the smoke tests with `make setup` once, then `make test` (no model needed). See `.env.example` for the full list of settings. The default configuration uses a local Ollama model and requires no API key.
 
 ## What works and what is mocked
 
