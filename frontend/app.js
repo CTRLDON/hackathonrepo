@@ -174,7 +174,7 @@ function formatStatus(s) {
 
 /* ── Plain-English helpers ───────────────────────────────────────────── */
 const DECISION_TEXT = { GO: "Go ahead", REPEAT: "Repeat this stage", PIVOT: "Pivot", STOP: "Stop",
-                        APPROVED: "Approved by you", REJECTED: "Rejected by you" };
+                        APPROVED: "Approved by you", REJECTED: "Rejected by you", DONE: "Done", REFUSED: "Refused (guardrail)" };
 const AGENT_NAMES = { founder: "You (founder)", founder_understanding: "Founder interview",
   feasibility: "Feasibility analyst", validation: "Validation analyst", development: "Prototype builder",
   testing: "Prototype tester", strategy: "Product strategist", financial: "Financial analyst",

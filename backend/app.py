@@ -154,7 +154,7 @@ def get_artifact(vid: str, name: str):
         raise HTTPException(404, "This file hasn't been generated yet — run the stage first.")
     if path.suffix == ".md":
         return FileResponse(path, media_type="text/markdown; charset=utf-8", filename=path.name)
-    headers = {"Content-Security-Policy": _SANDBOX_CSP} if name == "prototype" else {}
+    headers = {"Content-Security-Policy": _SANDBOX_CSP} if name in ("prototype", "store-page") else {}
     return FileResponse(path, media_type="text/html; charset=utf-8", headers=headers)
 
 
@@ -384,6 +384,22 @@ def demand_test(vid: str, body: DemandTestRequest):
         return orchestrator.record_demand_test(vid, body.signups)
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+@app.post("/api/ventures/{vid}/publish-store-page")
+def publish_store_page(vid: str):
+    """MOCKED publish — refused unless the founder approved the Launch gate; never posts anything."""
+    v = database.get_venture(vid)
+    if not v:
+        raise HTTPException(404, "venture not found")
+    from services import store_page
+    try:
+        res = store_page.publish(vid)
+    except approval_manager.ApprovalRequired:
+        raise HTTPException(403, "Publishing needs your approval of the Launch gate first.")
+    decision_log.log(vid, stage="launch", agent="store_page", action="Store page publish (MOCKED)",
+                     decision="APPROVED", rationale=res["message"], approval_status="approved", model="rule-based")
+    return res
 
 
 @app.post("/api/ventures/{vid}/stop")

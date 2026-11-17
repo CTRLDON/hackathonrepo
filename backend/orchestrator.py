@@ -24,14 +24,22 @@ from config import OUTPUTS_DIR, STAGES
 from memory import database
 from memory.database import connect
 from memory.schemas import utcnow
-from services import decision_log, evidence_ledger, stage_report, venture_report
+from services import decision_log, evidence_ledger, policies, stage_report, store_page, venture_report
 
 # Downloadable outputs, by public name -> path inside outputs/<venture id>/
 ARTIFACTS = {
     "prototype": "mvp/index.html",
     "validation-plan": "validation/validation_plan.md",
     "report": "final/venture_report.html",
+    "policies": "commercial/policies.md",
+    "store-page": "launch/store_page.html",
 }
+
+
+def _log_agent(vid, stage, agent, action, detail="", model=None):
+    """One decision-log entry per agent action (gates and founder choices are logged separately)."""
+    decision_log.log(vid, stage=stage, agent=agent, action=action, decision="DONE",
+                     rationale=str(detail)[:400], model=model)
 
 
 LEAN_CANVAS = [("Problem", "problem"), ("Customer segments", "customers"),
@@ -181,6 +189,8 @@ class Orchestrator:
                 try:
                     _, result = fut.result()
                     results[i] = result
+                    _log_agent(vid, "discover", "research", f"Web research: {q[:80]}",
+                               f"{len(result.get('sources', []))} sources, {len(result.get('findings', []))} findings")
                     _checkpoint(vid, "discover", f"Topic {i + 1}/4 complete — {len(result.get('sources', []))} sources")
                 except Exception as e:
                     results[i] = {"sources": [], "findings": []}
@@ -202,6 +212,7 @@ class Orchestrator:
             bmap = self.build_business_map(vid, feasibility=feas)
             gaps = sum(1 for a in bmap["aspects"] if a["status"] == "gap")
             _checkpoint(vid, "discover", f"Business map ready — 12 aspects, {gaps} gaps")
+            _log_agent(vid, "discover", "business_map", "Business map (12 aspects)", f"{gaps} gaps")
         except Exception as e:
             _checkpoint(vid, "discover", f"Business map failed — {str(e)[:80]}")
 
@@ -267,6 +278,7 @@ class Orchestrator:
         spec = self.strategy.generate_mvp_spec(v, evidence)
         features = (spec.get("features") or [])[:5]
         _checkpoint(vid, "build", f"Defined {len(features)} MVP features")
+        _log_agent(vid, "build", "strategy", "MVP specification", ", ".join(str(f.get("name")) for f in features))
 
         out_dir = OUTPUTS_DIR / vid / "mvp"
         build = self.development.scaffold_mvp(v, spec, out_dir,
@@ -275,6 +287,7 @@ class Orchestrator:
         _checkpoint(vid, "build", "Running automated checks on the prototype…")
         test = self.testing.generate_smoke_test(v, spec, out_dir)
         _checkpoint(vid, "build", f"Checks: {test['output']}")
+        _log_agent(vid, "build", "testing", "Automated prototype checks", test["output"], model="rule-based")
 
         gate = gates.build_gate(test["passed"], len(features))
         return self._finish(
@@ -299,6 +312,16 @@ class Orchestrator:
         evidence = evidence_ledger.list_for(vid)
         pricing = self.commercial.prepare_pricing(v, evidence)
         _checkpoint(vid, "commercial", f"Pricing model: {str(pricing.get('model', '?')).title()}")
+        _log_agent(vid, "commercial", "commercial", "Pricing strategy",
+                   f"{pricing.get('model')} at {pricing.get('price_per_unit')} per {pricing.get('unit')}")
+        policies.write(v, pricing, OUTPUTS_DIR / vid / ARTIFACTS["policies"])
+        _checkpoint(vid, "commercial", "Drafted terms, privacy and refund policies (STUBBED template)")
+        _log_agent(vid, "commercial", "policies", "Policy drafts (STUBBED template)",
+                   "Terms, privacy and refunds — not legal advice", model="rule-based")
+        fresh = database.get_venture(vid)
+        brief = fresh.get("brief") or {}
+        brief["pricing"] = {k: pricing.get(k) for k in ("model", "price_per_unit", "unit", "currency")}
+        database.update_venture(vid, brief=brief)
         _checkpoint(vid, "commercial", "Calculating unit economics…")
         eco = self.financial.model_unit_economics(v, pricing)
         margin = eco.get("gross_margin_pct", 0)
@@ -320,7 +343,11 @@ class Orchestrator:
                         ("Confidence", str(pricing.get("confidence", "—")).title())],
             sections=[("Why this price", [pricing.get("rationale", "")]),
                       ("Competitor price anchors", pricing.get("competitor_anchors") or []),
-                      ("Cost assumptions", eco.get("assumptions") or [])],
+                      ("Cost assumptions", eco.get("assumptions") or []),
+                      ("Policies (STUBBED — draft template, not legal advice)",
+                       ["Terms of service, privacy policy and refund policy drafts are ready for your review."]),
+                      ("Payments", ["None of any kind — no payment provider, no sandbox."])],
+            links=[("Open the policy drafts (STUBBED)", artifact_url(vid, "policies"))],
             extra={"classification": f"Gross margin {margin}%"})
 
     # ── 5. Launch ────────────────────────────────────────────────────────
@@ -331,6 +358,12 @@ class Orchestrator:
         unsupported = m.get("unsupported_claims", [])
         supported = [c.get("text", "") for c in m.get("claims", []) if c.get("status") != "unsupported"]
         _checkpoint(vid, "launch", f"{len(m.get('claims', []))} marketing claims, {len(unsupported)} need evidence")
+        _log_agent(vid, "launch", "marketing", "Launch copy and claim check",
+                   f"{len(m.get('claims', []))} claims, {len(unsupported)} unsupported")
+        store_page.write(database.get_venture(vid), m, (v.get("brief") or {}).get("pricing"),
+                         OUTPUTS_DIR / vid / ARTIFACTS["store-page"])
+        _checkpoint(vid, "launch", "Store page drafted (MOCKED — not published)")
+        _log_agent(vid, "launch", "store_page", "Store page draft (MOCKED, not published)", model="rule-based")
         gate = gates.launch_gate(unsupported)
         return self._finish(
             vid, "launch", gate=gate, rationale="", agent="marketing", action="Launch materials",
@@ -340,7 +373,12 @@ class Orchestrator:
             highlights=[("Tagline", m.get("tagline")), ("One-liner", m.get("one_liner")),
                         ("Call to action", m.get("call_to_action"))],
             sections=[("Claims backed by evidence", supported),
-                      ("Claims that need evidence first", unsupported)],
+                      ("Claims that need evidence first", unsupported),
+                      ("Store and delivery (MOCKED)", [
+                          "Store page drafted locally and never published; publishing needs your Launch approval.",
+                          "Payment → automatic delivery → refunds → reconciliation run as a MOCKED flow "
+                          "(see outputs/payment_test_log.md). No money moves."])],
+            links=[("Preview the store page (MOCKED)", artifact_url(vid, "store-page"))],
             extra={"unsupported_claims": unsupported})
 
     # ── 6. Operate (final) ───────────────────────────────────────────────
@@ -359,6 +397,7 @@ class Orchestrator:
             try:
                 _checkpoint(vid, "operate", "Looking for comparable real-world cases…")
                 cases = self.case_research.find_similar_cases(v, str(risks[0].get("risk", ""))[:100]).get("cases", [])
+                _log_agent(vid, "operate", "case_research", "Comparable cases", f"{len(cases)} cases")
             except Exception:
                 cases = []
         gate = gates.operate_gate()

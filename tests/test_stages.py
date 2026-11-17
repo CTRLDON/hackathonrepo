@@ -163,3 +163,25 @@ def test_artifacts_reject_unknown_names(env):
     vid = _venture_at("discover")
     assert c.get(f"/api/ventures/{vid}/artifacts/..%2F..%2Fconfig.py").status_code == 404
     assert c.get(f"/api/ventures/{vid}/artifacts/prototype").status_code == 404  # not built yet
+
+
+def test_commercial_and_launch_write_stubbed_policies_and_mocked_store_page(env):
+    c, _, out = env
+    vid = _venture_at("commercial")
+    assert c.post(f"/api/ventures/{vid}/run-stage/commercial").json()["stage_status"] == "awaiting_approval"
+    assert "NOT LEGAL ADVICE" in (out / vid / "commercial" / "policies.md").read_text()
+    assert c.get(f"/api/ventures/{vid}/artifacts/policies").status_code == 200
+
+    from memory import database
+    database.update_venture(vid, current_stage="launch")
+    database.set_stage_status(vid, "commercial", "completed")
+    res = c.post(f"/api/ventures/{vid}/run-stage/launch").json()
+    assert "MOCKED" in (out / vid / "launch" / "store_page.html").read_text()
+    # Nothing is published without the founder's Launch approval.
+    assert c.post(f"/api/ventures/{vid}/publish-store-page").status_code == 403
+    c.post("/api/approve", json={"venture_id": vid, "approval_id": res["approval_id"], "choice": "continue"})
+    pub = c.post(f"/api/ventures/{vid}/publish-store-page").json()
+    assert pub["mocked"] and not pub["published"]
+    actions = [d["agent"] for d in c.get(f"/api/ventures/{vid}/decisions").json()]
+    for agent in ("commercial", "policies", "marketing", "store_page", "founder"):
+        assert agent in actions, (agent, actions)
