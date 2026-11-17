@@ -1042,9 +1042,19 @@ async function renderDecisions() {
   }
 }
 
-// Cytoscape only accepts #rgb/#rrggbb/rgb()/rgba() — never 8-digit hex (that crashed the map).
+// Cytoscape only accepts #rgb/#rrggbb/rgb()/rgba() — never 8-digit hex, names or hsl() — and
+// gradient stop lists are space-separated, so "rgb(43, 212, 189)" splits into broken tokens and
+// crashes the map. Every color handed to Cytoscape goes through here: the browser parses any CSS
+// color first, and the result is a compact "rgba(r,g,b,a)" with no spaces.
+let _colorCtx = null;
 function toRgba(color, alpha) {
-  const c = String(color || "").trim();
+  let c = String(color || "").trim();
+  try {
+    _colorCtx = _colorCtx || document.createElement("canvas").getContext("2d");
+    _colorCtx.fillStyle = "#6366f1";   // stays as the fallback if `c` isn't a valid color
+    _colorCtx.fillStyle = c;
+    c = String(_colorCtx.fillStyle);
+  } catch {}
   let m = c.match(/^#([0-9a-f]{3})$/i);
   if (m) return toRgba("#" + m[1].split("").map((x) => x + x).join(""), alpha);
   m = c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
@@ -1052,6 +1062,27 @@ function toRgba(color, alpha) {
   m = c.match(/^rgba?\(([^,]+),([^,]+),([^,)]+)/i);
   if (m) return `rgba(${m[1].trim()},${m[2].trim()},${m[3].trim()},${alpha})`;
   return `rgba(99,102,241,${alpha})`;
+}
+
+// Aspects sit on an inner ellipse around the venture, each aspect's detail leaf directly outside
+// it on an outer ellipse. Ellipses (wider than tall) match the panel and the wide node boxes, so
+// the map fits at a readable zoom — the old concentric layout spaced every ring by the 210px
+// center node and fit at ~0.3x, which made every label unreadable.
+function mindMapPositions(data) {
+  const aspects = data.nodes.filter((n) => n.data.type === "aspect").map((n) => n.data.id);
+  const k = Math.max(1, aspects.length / 12);   // spread the rings if there are more aspects
+  const at = (i, rx, ry) => {
+    const t = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(aspects.length, 1);
+    return { x: Math.round(rx * k * Math.cos(t)), y: Math.round(ry * k * Math.sin(t)) };
+  };
+  const pos = { center: { x: 0, y: 0 } };
+  aspects.forEach((id, i) => {
+    pos[id] = at(i, 400, 270);
+    data.edges.filter((e) => e.data.source === id).forEach((e, j) => {
+      pos[e.data.target] = at(i, 660 + j * 220, 430 + j * 110);
+    });
+  });
+  return pos;
 }
 
 async function renderMindMap() {
@@ -1078,36 +1109,36 @@ async function renderMindMap() {
   }
   container.innerHTML = "";
   const css = getComputedStyle(document.documentElement);
-  const a1 = css.getPropertyValue("--accent").trim() || "#6366f1";
-  const a2 = css.getPropertyValue("--accent-2").trim() || "#a855f7";
-  const a3 = css.getPropertyValue("--accent-3").trim() || "#06b6d4";
+  const a1 = toRgba(css.getPropertyValue("--accent").trim() || "#6366f1", 1);
+  const a2 = toRgba(css.getPropertyValue("--accent-2").trim() || "#a855f7", 1);
+  const a3 = toRgba(css.getPropertyValue("--accent-3").trim() || "#06b6d4", 1);
   try { state.cy = cytoscape({
     container, elements: [...data.nodes, ...data.edges], wheelSensitivity: 0.25,
     style: [
       { selector: 'node[type="center"]', style: {
         "background-fill": "linear-gradient", "background-gradient-stop-colors": `${a1} ${a2} ${a3}`,
         "background-gradient-stop-positions": "0% 50% 100%", "background-gradient-direction": "to-bottom-right",
-        label: "data(label)", color: "#fff", "font-weight": 800, "font-size": 19,
-        "text-valign": "center", "text-halign": "center", "text-wrap": "wrap", "text-max-width": 170,
-        width: 210, height: 210, padding: 20, "border-width": 3, "border-color": "rgba(255,255,255,.85)" }},
+        label: "data(label)", color: "#fff", "font-weight": 800, "font-size": 18,
+        "text-valign": "center", "text-halign": "center", "text-wrap": "wrap", "text-max-width": 150,
+        width: 180, height: 180, "border-width": 3, "border-color": "#fff", "border-opacity": 0.85 }},
+      // Cytoscape ignores the alpha in rgba() for plain colors — translucency needs the *-opacity props.
       { selector: 'node[type="aspect"]', style: {
+        shape: "round-rectangle",
         "background-fill": "linear-gradient", "background-gradient-stop-colors": `${toRgba(a2, 0.22)} ${toRgba(a3, 0.22)}`,
         "background-gradient-stop-positions": "0% 100%", "background-gradient-direction": "to-bottom-right",
         "border-width": 2, "border-color": a1, label: "data(label)", color: "#f5f5f7",
-        "font-weight": 700, "font-size": 13, "text-valign": "center", "text-halign": "center",
-        "text-wrap": "wrap", "text-max-width": 140, width: 170, height: 60, padding: 10 }},
+        "font-weight": 700, "font-size": 15, "text-valign": "center", "text-halign": "center",
+        "text-wrap": "wrap", "text-max-width": 150, width: 170, height: 60 }},
       { selector: 'node[type="aspect"][status="strong"]', style: { "border-color": "#22c55e" }},
       { selector: 'node[type="aspect"][status="gap"]', style: { "border-color": "#f87171", "border-style": "dashed" }},
       { selector: 'node[type="leaf"]', style: {
-        "background-color": "rgba(255,255,255,.055)", "border-width": 1, "border-color": "rgba(255,255,255,.14)",
-        label: "data(label)", color: "#c8c8d8", "font-size": 11, "text-wrap": "wrap", "text-max-width": 130,
-        "text-valign": "center", "text-halign": "center", width: 160, height: 62, padding: 8 }},
-      { selector: "edge", style: { width: 1.5, "line-color": "rgba(160,160,220,.20)", "curve-style": "bezier" }},
+        shape: "round-rectangle", "background-color": "#fff", "background-opacity": 0.06,
+        "border-width": 1, "border-color": "#fff", "border-opacity": 0.16,
+        label: "data(label)", color: "#c8c8d8", "font-size": 12, "text-wrap": "wrap", "text-max-width": 164,
+        "text-valign": "center", "text-halign": "center", width: 180, height: 70 }},
+      { selector: "edge", style: { width: 1.5, "line-color": "rgb(160,160,220)", "line-opacity": 0.3, "curve-style": "bezier" }},
     ],
-    layout: { name: "concentric",
-      concentric: (n) => n.data("type") === "center" ? 10 : (n.data("type") === "aspect" ? 5 : 1),
-      levelWidth: () => 3, minNodeSpacing: 30, spacingFactor: 1.1, avoidOverlap: true,
-      animate: false, padding: 40 },
+    layout: { name: "preset", positions: mindMapPositions(data), fit: true, padding: 40, animate: false },
   }); } catch (e) {
     container.innerHTML = `<div style='padding:32px;color:#fca5a5'>Mind map failed to draw: ${escapeHtml(e.message)}</div>`;
     return;
