@@ -39,7 +39,9 @@ class OllamaClient:
             raise OllamaError(
                 f"Model '{self.model}' not in Ollama.\n"
                 f"Available: {models or '(none)'}\n"
-                f"Install: ollama pull {self.model}"
+                f"Install: ollama pull {self.model}\n"
+                f"Just ran `docker compose up`? The model is still downloading in the background "
+                f"(first run ~4.7 GB) — refresh this page in a few minutes."
             )
 
     def chat(self, messages, *, system=None, temperature=OLLAMA_TEMPERATURE,

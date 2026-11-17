@@ -8,7 +8,7 @@ An open-source team of AI agents that takes a founder's idea through six gated p
 docker compose up
 ```
 
-Then open **http://localhost:8000** in a browser. The landing page asks for your idea; the founder agent asks a few clarifying questions, drafts a business brief, and unlocks the six-phase pipeline. The first run pulls the model weights and installs Python dependencies (a few minutes); later runs use cached layers and start in seconds.
+Then open **http://localhost:8000** in a browser. The landing page asks for your idea; the founder agent asks a few clarifying questions, drafts a business brief, and unlocks the six-phase pipeline. The page is up within seconds; on the first run the model (`qwen2.5-coder:7b`, about 4.7 GB) downloads in the background and the page says so until it is ready. Later runs start in seconds.
 
 Run the smoke tests with `make setup` once, then `make test` (no model needed). See `.env.example` for the full list of settings. The default configuration uses a local Ollama model and requires no API key.
 

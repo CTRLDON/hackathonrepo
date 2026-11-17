@@ -34,7 +34,17 @@ Every gate is a founder decision. The system recommends one outcome, and the fou
 
 ## Phases
 
-The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. The founder adds available time and values on the confirm-before-drafting card (editable later on the Overview); they are merged into the answers the brief is drafted from, so the brief covers skills, budget, available time, target market and values.
+| Phase | Core step | Agents | Tools | Gate (recommendation) | Output |
+|---|---|---|---|---|---|
+| Brief | Founder interview | `FounderAgent` | guardrails | brief confirmed by founder | business brief |
+| 1. Discover | Find opportunities | `ResearchAgent`, `FeasibilityAgent`, `BusinessMapAgent`, `OpportunityAgent` | `web_search` (ddgs), evidence ledger | `discover_gate`: feasibility verdict, STOP on weak evidence | stage report, 12-aspect map, `opportunities.md` |
+| 2. Validate | Design the business | `ValidationAgent` | `web_search`, Lean Canvas from the map | `validate_gate`, `waitlist_gate` (pre-set target) | `validation_plan.md` (experiments, Mom Test script) |
+| 3. Build | Build the product | `StrategyAgent`, `DevelopmentAgent`, `TestingAgent` | HTML parser, `node --check` | `build_gate`: all checks pass, ≥ 3 features | `index.html` prototype, `USER_GUIDE.md` |
+| 4. Commercial setup | Set the price and policies | `CommercialAgent`, `FinancialAgent` | policy template (STUBBED) | `commercial_gate`: margin > 20% | pricing, unit economics, `policies.md` |
+| 5. Launch | Open the store; deliver automatically | `MarketingAgent` | `check_claim` guardrail, store page (MOCKED), sale to cash (MOCKED) | `launch_gate`: no unsupported claims | `store_page.html`, `launch_posts.md` (drafts) |
+| 6. Operate and learn | none | `OperationsAgent`, `CaseResearchAgent` | `web_search` | founder decides on the memo | 90-day plan, `support_kit.md`, `persevere_or_pivot_memo.md`, venture report |
+
+The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time, covering the problem, unique angle, target market, budget, available time, skills, education and values. It stores structured state in `ventures.discovery_json`, attributes each reply to the topic it was asked about, and pulls any topic the founder already mentioned out of the conversation so it is never asked twice. Each answer is checked against what its topic needs (for example, a budget needs an amount and a currency); an incomplete answer gets one specific follow-up, never more. The founder confirms or corrects the answers on a summary card before the brief is drafted, and can edit them later on the Overview.
 
 ### 1. Discover
 
@@ -203,7 +213,11 @@ flowchart TD
 | Sale to cash: delivery | MOCKED |
 | Sale to cash: refunds | MOCKED (founder approval required) |
 | Sale to cash: reconciliation | MOCKED (runs on mock records) |
+| Discover: find opportunities (idea vs. 3 alternatives, scored in code) | Working |
+| Build: user guide from the MVP spec | Working |
+| Launch: launch-post drafts through the output guardrail (never posted) | Working |
 | Operate: 90-day plan, comparable cases, venture report | Working |
+| Operate: support kit (FAQ, reply templates) and persevere-or-pivot memo | Working |
 | Gates, founder approval, decision log, evidence ledger | Working |
 | Trust Center (red-team self-test, honesty scorecard), launch-copy guardrail | Working |
 
