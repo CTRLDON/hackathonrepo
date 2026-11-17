@@ -533,17 +533,30 @@ async function showSummaryConfirm() {
     return `<li><span class="k">${lbl}</span><span class="v${cls}"${tip}>${v && v !== "Not specified" ? escapeHtml(v) : "not provided"}</span></li>`;
   }).join("");
 
+  const ans = summary.answers || {};
   card.innerHTML = `
     <h4>Confirm before drafting the plan</h4>
     <ul>
       <li><span class="k">Idea</span><span class="v">${escapeHtml(summary.idea)}</span></li>
       ${rows}
+      <li><span class="k">Available time</span><span class="v"><input class="brief-input" id="brief-time" placeholder="e.g. 10 hours a week for 3 months" value="${escapeHtml(ans.available_time || "")}" /></span></li>
+      <li><span class="k">Values</span><span class="v"><input class="brief-input" id="brief-values" placeholder="e.g. honest pricing, privacy first" value="${escapeHtml(ans.values || "")}" /></span></li>
     </ul>
     <div class="actions">
       <button class="primary" id="confirm-draft">Confirm — draft plan</button>
       <button class="ghost" id="edit-answers">Edit — add more</button>
     </div>`;
-  card.querySelector("#confirm-draft").onclick = () => draftBrief(card);
+  card.querySelector("#confirm-draft").onclick = async () => {
+    // Save the founder's available time and values into the brief before it is drafted.
+    for (const [field, id] of [["available_time", "#brief-time"], ["values", "#brief-values"]]) {
+      const value = card.querySelector(id).value.trim();
+      if (value) {
+        try { await api(`/api/ventures/${state.ventureId}/update-field`, { method: "POST", body: JSON.stringify({ field, value }) }); }
+        catch (e) { toastError(e.message); return; }
+      }
+    }
+    draftBrief(card);
+  };
   card.querySelector("#edit-answers").onclick = () => {
     card.remove(); state.readyForBrief = false;
     addChat("assistant", "Sure — add context, then I'll re-check when ready.");
@@ -766,7 +779,8 @@ async function refresh() {
     const kc = document.createElement("div");
     kc.id = "knowledge-card";
     kc.className = "card knowledge-card";
-    const fields = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market" };
+    const fields = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market",
+                     available_time: "Available time", values: "Values" };
     const analyzed = state.analyzedCache || {};
     kc.innerHTML = `<h3>Knowledge provided</h3><ul class="knowledge-list">
       <li data-field="idea"><span class="k">Idea</span><span class="v">${escapeHtml(summary.idea)}</span><span></span><span></span></li>
@@ -871,7 +885,8 @@ async function refresh() {
 function beginEditField(card, field) {
   const li = card.querySelector(`li[data-field="${field}"]`);
   if (!li) return;
-  const labels = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market" };
+  const labels = { budget: "Budget", skills: "Skills", education: "Education", target_market: "Target market",
+                   available_time: "Available time", values: "Values" };
   const currentText = li.querySelector(".v").textContent.trim();
   const current = currentText === "Not provided" ? "" : currentText;
   li.innerHTML = `

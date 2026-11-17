@@ -256,7 +256,9 @@ def update_field(vid: str, body: UpdateFieldRequest):
     if not v:
         raise HTTPException(404, "venture not found")
     field = body.field.strip()
-    if field not in ("budget", "skills", "education", "target_market"):
+    # Founder brief fields the founder can set or correct directly (the problem statement's brief:
+    # skills, budget, available time, target market and values).
+    if field not in ("budget", "skills", "education", "target_market", "available_time", "values"):
         raise HTTPException(400, f"invalid field: {field}")
     brief = v.get("brief") or {}
     overrides = brief.get("field_overrides") or {}

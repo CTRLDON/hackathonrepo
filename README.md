@@ -16,8 +16,8 @@ See `.env.example` for the full list of settings. The default configuration uses
 
 | Phase | Step | Status |
 |---|---|---|
-| Founder intake | Clarifying interview (one question at a time), required fields, business brief drafting | Working |
-| Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests refused before any model call (`services/guardrails.py`) | Working |
+| Founder intake | Clarifying interview (one question at a time); brief covers skills, budget, education, target market, available time and values; business brief drafting | Working |
+| Guardrails | Excluded products (physical goods; financial, investment or crypto; health or legal advice) and must-never requests, including reworded variants, refused before any model call (`services/guardrails.py`, 53 cases in `evals/trick_prompts.json`) | Working |
 | 1. Discover | Parallel sourced web research on competitors, pain points, market size, barriers | Working |
 | 1. Discover | Five-dimension feasibility verdict | Working |
 | 1. Discover | 12-aspect business map and mind map | Working |

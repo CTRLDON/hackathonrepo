@@ -51,16 +51,26 @@ MUST_NEVER = [
         r"\b(fake|false|made[- ]up|invented|fabricat\w*|bogus)\b[^.]{0,30}\b(reviews?|ratings?|testimonials?|endorsements?)\b",
         r"\b(\d+|ten|twenty|fifty|hundred|some|several|a few)?\s*(five|5|four|4)[- ]star (reviews?|ratings?)\b",
         r"\b(write|generate|create|post|make|draft|invent)\b[^.]{0,25}\b(reviews|testimonials)\b(?![^.]{0,20}\b(section|page|widget|form|template)s?\b)",
+        r"\b(write|compose|draft|generate|create|make up|invent|craft)\b[^.]{0,30}\b(glowing|rave|positive|five[- ]star|5[- ]star)\b"
+        r"[^.]{0,25}\b(feedback|reviews?|quotes?|comments?|posts?|testimonials?|ratings?)\b",
+        r"\b(write|compose|draft|generate|create|make up|invent|craft)\b[^.]{0,25}\b(quotes?|feedback|comments?|stories|endorsements?)\b"
+        r"[^.]{0,20}\b(from|by)\b[^.]{0,15}\b(satisfied|happy|delighted|loyal|thrilled)\b",
     ]),
     ("fake_signups", "fake sign-ups, users or traction", [
         r"\b(fake|false|made[- ]up|make up|making up|fabricat\w*|inflat\w*|bogus)\b[^.]{0,30}\b(sign[- ]?ups?|waitlist|users|followers|downloads?|traction|customers|metrics|numbers|stats)\b",
+        r"\b(say|claim|tell (people|visitors|investors|customers|users)|announce|write|state|pretend)\b[^.]{0,15}\b(we|that we)\b"
+        r"[^.]{0,12}\b(have|had|got|reached|serve|hit)\b[^.]{0,15}(\d[\d,.]*\s?k?\+?|thousands|millions|hundreds)\s*"
+        r"(of )?(paying )?(users|customers|sign[- ]?ups|downloads|clients|members|subscribers)\b",
     ]),
     ("false_urgency", "create fake urgency or countdown pressure", [
         r"\b(fake|false|artificial|manufactured)\b[^.]{0,20}\b(urgency|scarcity|deadlines?|countdowns?)\b",
         r"\bcountdown( timer)?\b[^.]{0,40}\b(urgency|pressure|buy now|limited offer|before it'?s gone)\b",
+        r"\b(offer|deal|discount|price|sale|access)\b[^.]{0,15}\b(expires?|ends?|runs out|disappears?)\b[^.]{0,10}\b(in \d+|in (one|an|a few)|within|tonight|today|soon|at midnight)\b",
+        r"\b(almost|nearly) sold out\b|\bonly \d+ (spots?|seats?|copies|licen[cs]es) (left|remaining)\b|\bbefore it'?s too late\b",
     ]),
     ("impersonation", "impersonate the founder, customers or another brand", [
         r"\b(impersonat\w*|pose as|posing as|pass (it|myself|ourselves) off as)\b",
+        r"\b(as if (it came|it were|you were) (from )?|sign (it|this|the (email|post|message|letter|reply)) as|written in the name of)\b",
         r"\bpretend(ing)? to be\b[^.]{0,40}\b(customers?|users?|clients?|the founder|a brand|another company|"
         r"apple|google|amazon|microsoft|a real person|someone else)\b",
     ]),
@@ -68,15 +78,18 @@ MUST_NEVER = [
         r"\b(guarantee[ds]?|promis(e|es|ed|ing))\b[^.]{0,40}\b(income|revenue|profits?|earnings|returns|success|"
         r"\$\s?\d[\d,]*k?|\d+k? (per|a) (month|week|day))\b",
         r"\bget[- ]rich[- ]quick\b",
+        r"\b(you|they|users|customers|buyers|founders)('ll| will| are going to)\s+(make|earn|take home)\s+(at least\s+)?\$?\s?\d",
+        r"\b(risk[- ]free income|can'?t lose|no risk of losing)\b",
     ]),
     ("credentials", "store passwords or card details", [
         r"\b(store|save|keep|collect|record|log)\b[^.]{0,25}\b(customers'?|users'?|their|my)?\s*"
-        r"(passwords?|credit[- ]?card (numbers?|details)|card numbers?|cvv|bank (logins?|passwords?))\b",
+        r"(passwords?|credit[- ]?card (numbers?|details)|card numbers?|cvv|bank (logins?|passwords?)|login (details|credentials)|credentials)\b",
     ]),
     ("move_money", "charge, transfer or refund money", [
         r"^\s*(please |now |go ahead and )?(charge|bill|refund|transfer|wire|send money|pay out)\b",
         r"\b(can|could|would|will) you (please )?(charge|bill|refund|transfer|wire|send|pay|process payments? for)\b"
         r"[^.?]{0,30}\b(money|funds|cards?|customers?|users?|payments?|\$\s?\d)",
+        r"^(?!\s*(how|what|why|when|where|which|should|is|are|do|does)\b)[^?]*\b(issue|send|process|make|initiate)\b[^.]{0,12}\b(a |the )?(refunds?|payouts?|payments?|transfers?|wires?)\b[^.]{0,20}\b(to|for|into)\b",
     ]),
 ]
 

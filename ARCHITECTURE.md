@@ -34,7 +34,7 @@ Every gate is a founder decision. The system recommends one outcome, and the fou
 
 ## Phases
 
-The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. Available time and values are not separate interview fields yet; the founder can state them in the brief text, and they are kept with it.
+The founder brief comes first. `agents/founder_agent.py` (`FounderAgent`) runs a clarification-first interview, one question at a time. It stores structured state in `ventures.discovery_json` and only drafts the business brief once the required fields are known: `budget`, `skills`, `education` and `target_market`. The founder adds available time and values on the confirm-before-drafting card (editable later on the Overview); they are merged into the answers the brief is drafted from, so the brief covers skills, budget, available time, target market and values.
 
 ### 1. Discover
 
