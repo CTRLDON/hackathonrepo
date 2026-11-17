@@ -64,10 +64,13 @@ def assess(venture: dict, answers: dict) -> dict:
         insights.append("Time: not stated — add your available hours per week to get a realistic MVP timeline.")
         reasons.append("available time unknown")
 
-    if software and not has["code"]:
+    if not skills_txt.strip():
+        insights.append("Skills: not stated — add them so the MVP plan matches what you can build yourself.")
+        reasons.append("skills unknown")
+    elif software and not has["code"]:
         verdict = "partner" if verdict == "build" else verdict
         reasons.append("this is a software product and your skills don't mention coding — find a technical co-founder or start no-code")
-        insights.append(f"Skills: you said \"{answers.get('skills') or 'not stated'}\" — no coding skill listed for a software product.")
+        insights.append(f"Skills: you said \"{answers.get('skills')}\" — no coding skill listed for a software product.")
     elif has["code"]:
         insights.append(f"Skills: you said \"{answers.get('skills')}\" — you can build the MVP yourself; that is your edge.")
     if not has["marketing"] and not has["sales"]:
