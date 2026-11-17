@@ -547,6 +547,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .trust-list .mark { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 800; font-size: 12px; background: rgba(16,185,129,.18); color: #34d399; }
 .trust-list li.warn .mark { background: rgba(251,191,36,.18); color: #fcd34d; }
+.trust-list .mock-tag { flex-shrink: 0; align-self: flex-start; margin: 2px 0 0; min-width: 72px; text-align: center; }
 .trust-table { display: grid; gap: 4px; font-size: 13px; }
 .trust-table .row { display: grid; grid-template-columns: 22px 70px 1fr auto; gap: 10px; align-items: center;
   padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--surface) 60%, transparent); }
