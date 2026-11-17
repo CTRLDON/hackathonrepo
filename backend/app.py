@@ -1,6 +1,7 @@
 """FastAPI backend."""
 from __future__ import annotations
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -14,12 +15,17 @@ from memory import database
 from services import decision_log, evidence_ledger, guardrails, trust
 from tools.ollama_client import OllamaError, get_client
 
-app = FastAPI(title="VentureOS", version="1.0.0")
+@asynccontextmanager
+async def _lifespan(_app):
+    _startup()  # recover interrupted stages and report model readiness, before serving requests
+    yield
+
+
+app = FastAPI(title="VentureOS", version="1.0.0", lifespan=_lifespan)
 orchestrator = Orchestrator()
 _analyze_cache: dict[str, dict] = {}
 
 
-@app.on_event("startup")
 def _startup():
     import os as _os
     provider = _os.getenv("MODEL_PROVIDER", "ollama").lower().strip()
