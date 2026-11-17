@@ -48,7 +48,7 @@ def test_double_approve_does_not_skip_stage():
 
 
 def test_gemini_keeps_roles_and_key_out_of_url(monkeypatch):
-    from tools import gemini_client
+    gemini_client = pytest.importorskip("tools.gemini_client")  # Gemini client is git-ignored
     seen = {}
 
     class R:

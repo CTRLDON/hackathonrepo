@@ -15,3 +15,8 @@ data/ventureos.db
 
 # Backup of the Gemini provider settings (contains an API key)
 .env.gemini
+
+# Gemini provider — kept local only (Ollama is the committed provider)
+gemini_client.py
+tools/gemini_client.py
+*gemini*.pyc
